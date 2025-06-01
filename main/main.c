@@ -3,19 +3,32 @@
 #include "mi_touch.h"
 #include "mi_wifi_ap.h"
 #include "mi_web_server.h"
-#include "led_strip.h"
 #include "esp_log.h"
 
+#include "freertos/FreeRTOS.h"
+
+led_strip_t *strip;
+int R = 255, G = 0, B = 0;
+
+void vTaskA(void *pvParameters){
+    while(1){ 
+        turn_led_on(strip, R, G, B);
+        vTaskDelay(pdMS_TO_TICKS(500));
+        turn_led_off(strip);
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+}
 
 void app_main(void)
 {
-    //--> Función para la parte 1:
-    //buttons_for_led();
+    led_rgb_init(&strip);
 
-    //-->Funciones para la parte 2:
-    //init_wifi_ap("SSID", "Contraseña"); // Se crea una red
-    //connect_wifi_ap("SSID", "Contraseña"); // Se conecta a una red
-   
-    //Función para la parte 3:
-    //init_web_services();
+    xTaskCreate(
+        vTaskA,
+        "ParpadeoLED",
+        1800,
+        NULL,
+        1,
+        NULL
+    );
 }
