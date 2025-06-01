@@ -7,11 +7,11 @@
 
 #include "freertos/FreeRTOS.h"
 
-led_strip_t *strip;
-int R = 255, G = 0, B = 0;
+led_strip_t *strip; //--> Parametro que maneja al LED
+int R = 255, G = 0, B = 0; //--> Colores del LED
 
 void vTaskA(void *pvParameters){
-    while(1){ 
+    while(1){ //--> Loop para hacer parpadear al LED
         turn_led_on(strip, R, G, B);
         vTaskDelay(pdMS_TO_TICKS(500));
         turn_led_off(strip);
@@ -21,12 +21,12 @@ void vTaskA(void *pvParameters){
 
 void app_main(void)
 {
-    led_rgb_init(&strip);
+    led_rgb_init(&strip); //--> Iniciamos el LED
 
-    xTaskCreate(
+    xTaskCreate( //--> Creamos vTaskA para hacer parpadear al LED
         vTaskA,
         "ParpadeoLED",
-        1800,
+        1800, //--> Con menos de 1800 se rompe todo
         NULL,
         1,
         NULL
