@@ -1,0 +1,23 @@
+#pragma once
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+
+/**
+* @brief Evento que contiene los datos a enviar por la cola
+*
+*/
+typedef struct {
+    int r;
+    int g;
+    int b;
+    int tiempo_ms;
+} mi_evento_t;
+
+// Inicializa la cola y retorna el handle
+QueueHandle_t mi_queue_init(int length);
+
+// Envia un evento a la cola
+BaseType_t mi_queue_send(QueueHandle_t queue, mi_evento_t *evento, TickType_t ticks_to_wait);
+
+// Recibe un evento de la cola
+BaseType_t mi_queue_receive(QueueHandle_t queue, mi_evento_t *evento, TickType_t ticks_to_wait);
