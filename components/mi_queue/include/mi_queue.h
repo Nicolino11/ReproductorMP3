@@ -6,11 +6,20 @@
 * @brief Evento que contiene los datos a enviar por la cola
 *
 */
+
+typedef enum {
+    LED_OFF = 0,
+    LED_ON,
+    LED_BRIGHTNESS
+} mi_tipo_evento_t;
+
+
 typedef struct {
     int r;
     int g;
     int b;
     int tiempo_ms;
+    float brghtness;
 } mi_evento_t;
 
 // Inicializa la cola y retorna el handle

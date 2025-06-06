@@ -13,7 +13,8 @@ static void vTaskB(void *pvParameters) {
         evento.b = (i * 120) % 256;
         evento.tiempo_ms = 500 + (i % 5) * 100;
         mi_queue_send(queue, &evento, portMAX_DELAY);
-        ESP_LOGI("mi_task_b", "Producido: R=%d G=%d B=%d T=%d", evento.r, evento.g, evento.b, evento.tiempo_ms);
+        ESP_LOGI("mi_task_b", "Producido: R=%d G=%d B=%d T=%d", 
+            evento.r, evento.g, evento.b, evento.tiempo_ms);
         vTaskDelay(pdMS_TO_TICKS(1000));
         i++;
     }
