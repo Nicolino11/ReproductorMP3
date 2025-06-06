@@ -17,17 +17,22 @@ SemaphoreHandle_t mutex_color;
 led_strip_t *strip;
 
 void app_main(void)
-{
+{   //--> Iniciamos el LED
     led_rgb_init(&strip); 
 
-
-    mutex_color = xSemaphoreCreateMutex();
-    // Inicializar la queue
+    //--> Creamos la queue
     QueueHandle_t queue = mi_queue_init(10);
+
+     //--> Creamos el Semaforo mutex
+    mutex_color = xSemaphoreCreateMutex();
+    
+    //--> Enviamos las variables compartidas a vTaskA
+    task_a_set_shared_resources(&global_color, mutex_color, strip);
 
     // Lanzar productor y consumidor
     mi_task_b_start(queue);
     mi_task_c_start(queue);
-    //mi_task_a_start(NULL);
 
+    TaskHandle_t taskA_handle = NULL;
+    task_a_start(&taskA_handle);
 }
