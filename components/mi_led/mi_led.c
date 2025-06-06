@@ -6,9 +6,11 @@ void turn_led_on(led_strip_t *strip, int a, int b, int c){
     strip->set_pixel(strip, 0, a, b, c);
     strip->refresh(strip, 100);
 }
+
 void turn_led_off(led_strip_t *strip){
     strip->clear(strip, 100);
 }
+
 void set_led_brightness(led_strip_t *strip, int base_r, int base_g, int base_b, float brightness) {
     //--> El brillo es un numero flotante entre 0 y 1 que multiplica al 255 de RGB
     if (brightness > 1.0){
