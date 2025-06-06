@@ -11,13 +11,17 @@
 #include "mi_task_c.h"
 #include "mi_task_a.h"
 
-led_strip_t *strip; //--> Parametro que maneja al LED
-int R = 255, G = 0, B = 0; //--> Colores del LED
+//--> Variables globales compartidas
+led_color_t global_color = {255, 0, 0};
+SemaphoreHandle_t mutex_color;
+led_strip_t *strip;
 
 void app_main(void)
 {
-    led_rgb_init(&strip); //--> Iniciamos el LED
+    led_rgb_init(&strip); 
 
+
+    mutex_color = xSemaphoreCreateMutex();
     // Inicializar la queue
     QueueHandle_t queue = mi_queue_init(10);
 
