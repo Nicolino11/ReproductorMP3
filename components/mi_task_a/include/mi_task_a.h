@@ -1,4 +1,9 @@
+#ifndef MI_TASK_A_H
+#define MI_TASK_A_H
+
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+#include <stdint.h>
 
 //--> led_color_t tiene los valores rgb
 typedef struct {
@@ -12,3 +17,5 @@ void task_a_start(TaskHandle_t *task_handle);
 
 //-->task_a_set_shared_resources se trae de main el color, el semaforo y el strip globales de main
 void task_a_set_shared_resources(led_color_t *color_ptr, SemaphoreHandle_t sem_ptr, void *strip_ptr);
+
+#endif // MI_TASK_A_H
