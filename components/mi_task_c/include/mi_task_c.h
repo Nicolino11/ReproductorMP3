@@ -1,7 +1,12 @@
+#ifndef MI_TASK_C_H
+#define MI_TASK_C_H
+
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "mi_queue.h"
 #include "../../led_strip/include/led_strip.h"
 #include "../../mi_delay/include/mi_delay.h"
+#include "../../mi_task_a/include/mi_task_a.h"  // Para obtener led_color_t
 
 typedef void* task_handle_t;
 
@@ -13,3 +18,6 @@ void turn_led_off(led_strip_t *strip);
 
 void set_led_brightness(led_strip_t *strip, int base_r, int base_g, int base_b, float brightness);
 
+void task_c_set_shared_resources(led_color_t *color, SemaphoreHandle_t mutex);
+
+#endif

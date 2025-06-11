@@ -28,6 +28,8 @@ void app_main(void)
     
     //--> Enviamos las variables compartidas a vTaskA
     task_a_set_shared_resources(&global_color, mutex_color, strip);
+    task_c_set_shared_resources(&global_color, mutex_color);
+
 
     // Lanzar productor y consumidor
     mi_task_b_start(queue);
