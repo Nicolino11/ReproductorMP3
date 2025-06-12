@@ -24,6 +24,7 @@ static void timer_callback(TimerHandle_t xTimer) {
             xSemaphoreGive(shared_mutex);
         }
     }
+    free(color);
 }
 static void vTaskC(void *pvParameters)
 {
