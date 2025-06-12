@@ -3,7 +3,7 @@
 **Integrantes:** Nicolas Raposo, Martin Da Rosa y Rafael Durán.
 
 El formato para introducir el color y tiempo es: “[Color] [Tiempo], [Color] [Tiempo], [Color] [Tiempo]…”<br />
-Los posibles colores son: (x es el tiempo):
+Los posibles colores son: (x es el tiempo):<br />
 red x <br />
 green x <br />
 blue x <br />
