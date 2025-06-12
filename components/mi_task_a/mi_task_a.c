@@ -9,7 +9,7 @@ void task_a_set_shared_resources(led_color_t *color_ptr, SemaphoreHandle_t sem_p
     //--> Traemos de main los valores globales necesarios
     shared_color = color_ptr; 
     shared_mutex = sem_ptr;
-    strip = strip_ptr;
+    strip = (led_strip_t *) strip_ptr;
 }
 
 static void task_a(void *arg) {
@@ -32,6 +32,6 @@ static void task_a(void *arg) {
         vTaskDelay(pdMS_TO_TICKS(500));
     }
 }
-void task_a_start(TaskHandle_t *task_handle) {
-    xTaskCreate(task_a, "TaskA", 2048, NULL, 1, task_handle);
+void mi_task_a_start(TaskHandle_t *task_handle) {
+    xTaskCreate(task_a, "TaskA", 3072, NULL, 1, task_handle);
 }

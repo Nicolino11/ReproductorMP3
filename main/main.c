@@ -34,7 +34,5 @@ void app_main(void)
     // Lanzar productor y consumidor
     mi_task_b_start(queue);
     mi_task_c_start(queue);
-
-    TaskHandle_t taskA_handle = NULL;
-    task_a_start(&taskA_handle);
+    mi_task_a_start(NULL);
 }
