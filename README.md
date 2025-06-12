@@ -8,11 +8,8 @@ red x <br />
 green x <br />
 blue x <br />
 yellow x <br />
-orange x <br />
 violet x <br />
 white x <br />
 <br />
 Como se explicó antes se pueden encadenar varios colores de la siguiente forma:<br />
-“red 1000, green 5000, orange 10000”<br />
-
-No se debe introducir un tiempo de 0 o flotante, de ser así el programa se reiniciará.
+“red 1000, green 5000, white 10000”<br />
