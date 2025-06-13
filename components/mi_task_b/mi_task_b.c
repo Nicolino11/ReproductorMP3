@@ -7,6 +7,9 @@
 #include "string.h"
 #include "esp_err.h"
 #include <ctype.h>
+#include <stdio.h>
+#include <ctype.h>
+#include <string.h>
 
 
 #define EX_UART_NUM UART_NUM_0
@@ -46,6 +49,20 @@ static int find_color(const char* name, int* r, int* g, int* b) {
     return 0;
 }
 
+int is_number_string(const char *str) {
+    if (str == NULL || strlen(str) == 0) {
+        return 0; // Empty string or NULL pointer, not a number
+    }
+
+    for (int i = 0; str[i] != '\0'; i++) {
+        if (!isdigit((unsigned char)str[i])) {
+            return 0; // Found a non-digit character
+        }
+    }
+
+    return 1; // All characters are digits
+}
+
 // Se hace un split de la línea recibida por UART y se parsea cada evento
 // Ejemplo de línea: "YELLOW 10, RED 5, BLUE 20"
 static int parse_line(char* line, mi_evento_t* arr, int max_arr) {
@@ -54,10 +71,19 @@ static int parse_line(char* line, mi_evento_t* arr, int max_arr) {
     
     while (token && count < max_arr) {
         char color[16];
+        char time_string[16];
         int time;
+        
+        sscanf(token, "%s %s", color, time_string);
+
+        if(is_number_string(time_string) == 0){
+            ESP_LOGW(TAG, "No hay eventos válidos en la línea: %s", line);
+            return 0;
+        }
 
         //e.g. "YELLOW 10"
-        if (sscanf(token, "%15s %d", color, &time) == 2) {
+        if (sscanf(token, "%s %d", color, &time) == 2) {
+            
             int r, g, b;
             if (find_color(color, &r, &g, &b)) {
                 arr[count].r = r;
