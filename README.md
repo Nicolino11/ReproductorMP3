@@ -13,3 +13,5 @@ white x <br />
 <br />
 Como se explicó antes se pueden encadenar varios colores de la siguiente forma:<br />
 “red 1000, green 5000, white 10000”<br />
+
+**Aclaración:** Si se ingresa un input con una cola de valores, dónde alguno de estos tenga un tiempo en punto flotante o un valor negativo (valores no admitidos), se descartará la cola por completo.
