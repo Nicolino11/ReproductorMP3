@@ -1,8 +1,9 @@
+#include "mi_touch.h"
 #include "mi_delay.h"
 #include "mi_led.h"
 #include "esp_log.h"
 #include "driver/touch_pad.h"
-
+#include "freertos/FreeRTOS.h"
 
 #define TOUCH_THRESHOLD 19000 //--> Umbral para el valor en crudo que detecta si fue presionado
 #define TOUCH_BUTTON_NUM 6 //--> Cantidad de botones
@@ -27,22 +28,35 @@ void touch_buttons_init(void){
     }
     //--> Iniciamos el touchpad para medidas manuales con touch_pad_read_raw_data
     touch_pad_set_fsm_mode(TOUCH_FSM_MODE_SW);
+    
 }
 
 int touch_buttons_get_pressed(void){
     //--> value tiene el valor en crudo obtenido del touchpad
     uint32_t value;
+    
+    static int last_state = -1;
+    static bool released = true;
+
+    
 
     //--> Recorremos cada boton, tomamos la medida y si alguna supera el umbral la retornamos
     for (int i = 0; i < TOUCH_BUTTON_NUM; i++) {
         touch_pad_sw_start(); //--> Inicia la medicion
-        delay(10, 'm'); //--> Este delay le da tiempo a hacer la medida
+        vTaskDelay(pdMS_TO_TICKS(20)); //--> Este delay le da tiempo a hacer la medida
         touch_pad_read_raw_data(buttons[i], &value); //--> Lee la medicion
         //printf("T%d: [%4"PRIu32"]\n", buttons[i], value); //--> Este print es para calibrar el THRESHOLD
         if (value > TOUCH_THRESHOLD) {
-            return i;
+            if (released || last_state != i) {
+                released = false;
+                last_state = i;
+                return i; // Nueva presión detectada
+            }
+            return -1; // Botón sigue presionado, no es nuevo
         }
     }
+    released = true;
+    last_state = -1;
     return -1;
 }
 
@@ -62,14 +76,14 @@ void buttons_for_led(void){
     touch_buttons_init();
 
     while (1){
-        delay(50,'m');
+        vTaskDelay(pdMS_TO_TICKS(30));
         STATE = touch_buttons_get_pressed();
         switch (STATE){
             case -1: //No se presiona nada
                 break;
             case 0: //VOL_UP -> Sube brillo
                 if (brightness < 1.0){
-                    brightness += 0.05;
+                    brightness += 0.10;
                     set_led_brightness(strip, R, G, B, brightness);
                 }
                 break;
@@ -81,7 +95,7 @@ void buttons_for_led(void){
             break;
             case 2: //VOL_DOWN -> Baja brillo
                 if (brightness > 0.0){
-                    brightness -= 0.05;
+                    brightness -= 0.10;
                     set_led_brightness(strip, R, G, B, brightness);
                 }
                 break;

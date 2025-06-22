@@ -17,25 +17,30 @@ SemaphoreHandle_t mutex_color;
 led_strip_t *strip;
 
 void app_main(void)
-{   //--> Iniciamos el LED
-    led_rgb_init(&strip); 
-
-    //--> Creamos la queue
-    QueueHandle_t queue = mi_queue_init(10);
-
-     //--> Creamos el Semaforo mutex
-    mutex_color = xSemaphoreCreateMutex();
+{   
     
-    //--> Enviamos las variables compartidas a vTaskA
-    task_a_set_shared_resources(&global_color, mutex_color, strip);
-    task_c_set_shared_resources(&global_color, mutex_color);
+    buttons_for_led();
+
+    //--> Lab3
+    //--> Iniciamos el LED
+    // led_rgb_init(&strip); 
+
+    // //--> Creamos la queue
+    // QueueHandle_t queue = mi_queue_init(10);
+
+    //  //--> Creamos el Semaforo mutex
+    // mutex_color = xSemaphoreCreateMutex();
+    
+    // //--> Enviamos las variables compartidas a vTaskA
+    // task_a_set_shared_resources(&global_color, mutex_color, strip);
+    // task_c_set_shared_resources(&global_color, mutex_color);
 
 
-    // Lanzar productor y consumidor
-    mi_task_b_start(queue);
+    // // Lanzar productor y consumidor
+    // mi_task_b_start(queue);
 
-    mi_task_c_start(queue);
+    // mi_task_c_start(queue);
 
-    TaskHandle_t taskA_handle = NULL;
-    mi_task_a_start(&taskA_handle);
+    // TaskHandle_t taskA_handle = NULL;
+    // mi_task_a_start(&taskA_handle);
 }
