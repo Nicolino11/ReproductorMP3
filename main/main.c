@@ -10,6 +10,7 @@
 #include "mi_task_b.h"
 #include "mi_task_c.h"
 #include "mi_task_a.h"
+#include "mi_audio.h"
 
 //--> Variables globales compartidas
 led_color_t global_color = {255, 0, 0};
@@ -18,8 +19,8 @@ led_strip_t *strip;
 
 void app_main(void)
 {   
-    
-    buttons_for_led();
+
+    mi_audio_init();
 
     //--> Lab3
     //--> Iniciamos el LED
