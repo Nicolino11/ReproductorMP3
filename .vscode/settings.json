@@ -20,6 +20,6 @@
         "mi_queue.h": "c"
     },
     "idf.flashType": "UART",
-    "idf.portWin": "COM12",
+    "idf.portWin": "COM4",
     "C_Cpp.errorSquiggles": "disabled"
 }
