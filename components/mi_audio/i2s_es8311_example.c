@@ -10,6 +10,7 @@
 #include "esp_check.h"
 #include "es8311.h"
 #include "mi_audio_config.h"
+#include "mi_queue.h"
 
 static const char *TAG = "i2s_es8311";
 //static const char err_reason[][30] = {"input param is invalid", "operation timeout"};
@@ -34,8 +35,8 @@ volatile bool change_track_next = false;
 volatile bool change_track_prev = false;
 
 //--> Añadimos las canciones
-extern const uint8_t alive_pcm_start[] asm("_binary_alive_pcm_start");
-extern const uint8_t alive_pcm_end[]   asm("_binary_alive_pcm_end");
+//extern const uint8_t alive_pcm_start[] asm("_binary_alive_pcm_start");
+//extern const uint8_t alive_pcm_end[]   asm("_binary_alive_pcm_end");
 
 extern const uint8_t butterfly_pcm_start[] asm("_binary_butterfly_pcm_start");
 extern const uint8_t butterfly_pcm_end[]   asm("_binary_butterfly_pcm_end");
@@ -51,13 +52,15 @@ typedef struct {
 
 //--> Creamos el array de canciones 
 static const music_track_t tracks[] = {
-    { alive_pcm_start, alive_pcm_end },
+    //{ alive_pcm_start, alive_pcm_end },
     { butterfly_pcm_start, butterfly_pcm_end },
     { dance_pcm_start, dance_pcm_end }
 };
 
 static size_t current_track = 0;
 static size_t total_tracks = sizeof(tracks) / sizeof(tracks[0]);
+
+static QueueHandle_t audio_event_queue = NULL;
 
 //--> Esto inicia la comunicacion con la ES8311 a traves de I2C
 static esp_err_t es8311_codec_init(void)
@@ -215,6 +218,7 @@ static void i2s_music(void *args)
     }
     vTaskDelete(NULL);
 }
+
 //-----------TESTBENCHS LOCALES------------//
 void pause_testbench_task(void *arg)
 {
@@ -312,5 +316,67 @@ void mi_audio_init(void)
     xTaskCreate(i2s_music, "i2s_music", 4096, NULL, 5, NULL);
     //xTaskCreate(pause_testbench_task, "pause_test", 2048, NULL, 4, NULL); //TB de pausa
     //xTaskCreate(volume_testbench_task, "volume_test", 2048, NULL, 4, NULL); //TB de volumen
-    xTaskCreate(music_change_testbench_task, "music_change_testbench", 2048, NULL, 4, NULL); //TB de cambio
+    //xTaskCreate(music_change_testbench_task, "music_change_testbench", 2048, NULL, 4, NULL); //TB de cambio
+}
+
+static void audio_event_task(void *arg)
+{
+    mi_evento_t evento;
+    while (1) {
+        if (mi_queue_receive(audio_event_queue, &evento, portMAX_DELAY) == pdTRUE) {
+            ESP_LOGI(TAG, "[AUDIO_EVENT] Recibido evento tipo: %d, value: %d", evento.tipo, evento.value);
+            switch (evento.tipo) {
+                case EVENT_NEXT_TRACK:
+                    ESP_LOGI(TAG, "[AUDIO_EVENT] Siguiente pista");
+                    if (xSemaphoreTake(music_change_mutex, portMAX_DELAY) == pdTRUE) {
+                        change_track_next = true;
+                        xSemaphoreGive(music_change_mutex);
+                    }
+                    break;
+                case EVENT_PREV_TRACK:
+                    ESP_LOGI(TAG, "[AUDIO_EVENT] Pista anterior");
+                    if (xSemaphoreTake(music_change_mutex, portMAX_DELAY) == pdTRUE) {
+                        change_track_prev = true;
+                        xSemaphoreGive(music_change_mutex);
+                    }
+                    break;
+                case EVENT_VOL_UP:
+                    ESP_LOGI(TAG, "[AUDIO_EVENT] Subir volumen");
+                    if (xSemaphoreTake(volume_mutex, portMAX_DELAY) == pdTRUE) {
+                        if (volume < 100) volume += 5;
+                        xSemaphoreGive(volume_mutex);
+                    }
+                    break;
+                case EVENT_VOL_DOWN:
+                    ESP_LOGI(TAG, "[AUDIO_EVENT] Bajar volumen");
+                    if (xSemaphoreTake(volume_mutex, portMAX_DELAY) == pdTRUE) {
+                        if (volume > 5) volume -= 5;
+                        xSemaphoreGive(volume_mutex);
+                    }
+                    break;
+                case EVENT_PLAY_PAUSE:
+                    ESP_LOGI(TAG, "[AUDIO_EVENT] Play/Pause");
+                    if (xSemaphoreTake(paused_mutex, portMAX_DELAY) == pdTRUE) {
+                        paused = !paused;
+                        xSemaphoreGive(paused_mutex);
+                    }
+                    break;
+                case EVENT_STOP:
+                    ESP_LOGI(TAG, "[AUDIO_EVENT] Stop");
+                    // Implementar lógica de stop si es necesario
+                    break;
+                default:
+                    ESP_LOGW(TAG, "[AUDIO_EVENT] Evento desconocido: %d", evento.tipo);
+                    break;
+            }
+        }
+    }
+}
+
+void mi_audio_init_with_queue(QueueHandle_t queue)
+{
+    audio_event_queue = queue;
+    mi_audio_init();
+    // Crear una task para procesar eventos de la queue
+    xTaskCreate(audio_event_task, "audio_event_task", 2048, NULL, 5, NULL);
 }

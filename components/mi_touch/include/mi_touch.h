@@ -1,3 +1,6 @@
+#pragma once
+#include "mi_queue.h"
+
 void touch_buttons_init(void);
 
 int touch_buttons_get_pressed(void);
@@ -12,3 +15,5 @@ int touch_buttons_get_pressed(void);
 
 void buttons_for_led(void);
 //--> Esta funcion usa un delay bloqueante de 50ms y es un loop infinito!
+
+void mi_touch_init_with_queue(QueueHandle_t queue);

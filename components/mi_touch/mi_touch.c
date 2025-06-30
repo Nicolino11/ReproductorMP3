@@ -1,14 +1,21 @@
 #include "mi_touch.h"
 #include "mi_delay.h"
-#include "mi_led.h"
 #include "esp_log.h"
 #include "driver/touch_pad.h"
 #include "freertos/FreeRTOS.h"
+#include "mi_queue.h"
 
-#define TOUCH_THRESHOLD 19000 //--> Umbral para el valor en crudo que detecta si fue presionado
+#define TOUCH_THRESHOLD 30000 //--> Umbral para el valor en crudo que detecta si fue presionado
 #define TOUCH_BUTTON_NUM 6 //--> Cantidad de botones
 
-//--> Array con los botones del touchpad
+// Definición de índices para los botones del touchpad
+#define BTN_VOL_UP      0
+#define BTN_PLAY_PAUSE  1
+#define BTN_VOL_DOWN    2
+#define BTN_NEXT_TRACK  3
+#define BTN_PREV_TRACK  4
+#define BTN_STOP        5
+
 static const touch_pad_t buttons[TOUCH_BUTTON_NUM] = {
     TOUCH_PAD_NUM1,   // TP5 - VOL_UP
     TOUCH_PAD_NUM2,   // TP2 - PLAY/PAUSE
@@ -17,6 +24,8 @@ static const touch_pad_t buttons[TOUCH_BUTTON_NUM] = {
     TOUCH_PAD_NUM6,   // TP1 - PHOTO
     TOUCH_PAD_NUM11,  // TP3 - NETWORK
 };
+
+static QueueHandle_t touch_event_queue = NULL;
 
 void touch_buttons_init(void){
     //--> Iniciamos el touchpad
@@ -32,90 +41,111 @@ void touch_buttons_init(void){
 }
 
 int touch_buttons_get_pressed(void){
-    //--> value tiene el valor en crudo obtenido del touchpad
-    uint32_t value;
-    
+    static uint32_t last_values[TOUCH_BUTTON_NUM] = {0};
+    uint32_t values[TOUCH_BUTTON_NUM];
     static int last_state = -1;
     static bool released = true;
-
-    
-
-    //--> Recorremos cada boton, tomamos la medida y si alguna supera el umbral la retornamos
+    // Leer todos los valores primero
     for (int i = 0; i < TOUCH_BUTTON_NUM; i++) {
-        touch_pad_sw_start(); //--> Inicia la medicion
-        vTaskDelay(pdMS_TO_TICKS(20)); //--> Este delay le da tiempo a hacer la medida
-        touch_pad_read_raw_data(buttons[i], &value); //--> Lee la medicion
-        //printf("T%d: [%4"PRIu32"]\n", buttons[i], value); //--> Este print es para calibrar el THRESHOLD
-        if (value > TOUCH_THRESHOLD) {
+        touch_pad_sw_start();
+        vTaskDelay(pdMS_TO_TICKS(20));
+        touch_pad_read_raw_data(buttons[i], &values[i]);
+    }
+    // Loguear todos los valores juntos
+    char logbuf[200];
+    int offset = 0;
+    offset += snprintf(logbuf + offset, sizeof(logbuf) - offset, "[MI_TOUCH] Valores touch: ");
+    for (int i = 0; i < TOUCH_BUTTON_NUM; i++) {
+        offset += snprintf(logbuf + offset, sizeof(logbuf) - offset, "%d(G%d)=%lu ", i, buttons[i], values[i]);
+    }
+    //ESP_LOGI("MI_TOUCH", "%s", logbuf);
+    // Detectar presión por diferencia
+    for (int i = 0; i < TOUCH_BUTTON_NUM; i++) {
+        int32_t diff = (int32_t)values[i] - (int32_t)last_values[i];
+        if (diff > TOUCH_THRESHOLD) {
             if (released || last_state != i) {
                 released = false;
                 last_state = i;
-                return i; // Nueva presión detectada
+                // Actualizar los valores previos antes de retornar
+                for (int j = 0; j < TOUCH_BUTTON_NUM; j++) last_values[j] = values[j];
+                return i;
             }
-            return -1; // Botón sigue presionado, no es nuevo
         }
     }
     released = true;
     last_state = -1;
+    // Actualizar los valores previos
+    for (int j = 0; j < TOUCH_BUTTON_NUM; j++) last_values[j] = values[j];
     return -1;
 }
 
-void buttons_for_led(void){   
-    led_strip_t *strip;
-    int STATE;
-
-    //--> Iniciamos el led
-    led_rgb_init(&strip);
-    
-    //--> Iniciamos colores y brillo para el led
-    float brightness = 1.0;
-    int R = 255, G = 255, B = 255;
-
-
+static void touch_event_task(void *arg){   
     //--> Iniciamos el touchpad
     touch_buttons_init();
-
+    int STATE;
     while (1){
         vTaskDelay(pdMS_TO_TICKS(30));
         STATE = touch_buttons_get_pressed();
+        mi_evento_t evento = {0};
         switch (STATE){
             case -1: //No se presiona nada
                 break;
-            case 0: //VOL_UP -> Sube brillo
-                if (brightness < 1.0){
-                    brightness += 0.10;
-                    set_led_brightness(strip, R, G, B, brightness);
+            case BTN_VOL_UP:
+                ESP_LOGI("MI_TOUCH", "[TOUCH] VOL_UP");
+                if (touch_event_queue) {
+                    evento.tipo = EVENT_VOL_UP;
+                    evento.value = 0;
+                    mi_queue_send(touch_event_queue, &evento, 0);
                 }
                 break;
-            case 1: //PLAY/PAUSE -> Color verde
-                R = 0;
-                G = 255;
-                B = 0;
-                set_led_brightness(strip, R, G, B, brightness);
-            break;
-            case 2: //VOL_DOWN -> Baja brillo
-                if (brightness > 0.0){
-                    brightness -= 0.10;
-                    set_led_brightness(strip, R, G, B, brightness);
+            case BTN_PLAY_PAUSE:
+                ESP_LOGI("MI_TOUCH", "[TOUCH] PLAY/PAUSE");
+                if (touch_event_queue) {
+                    evento.tipo = EVENT_PLAY_PAUSE;
+                    evento.value = 0;
+                    mi_queue_send(touch_event_queue, &evento, 0);
                 }
                 break;
-            case 3: //RECORD -> Color azul
-                R = 0;
-                G = 0;
-                B = 255;
-                set_led_brightness(strip, R, G, B, brightness);
+            case BTN_VOL_DOWN:
+                ESP_LOGI("MI_TOUCH", "[TOUCH] VOL_DOWN");
+                if (touch_event_queue) {
+                    evento.tipo = EVENT_VOL_DOWN;
+                    evento.value = 0;
+                    mi_queue_send(touch_event_queue, &evento, 0);
+                }
                 break;
-            case 4: //PHOTO -> Color rojo
-                R = 255;
-                G = 0;
-                B = 0;
-                set_led_brightness(strip, R, G, B, brightness);
+            case BTN_NEXT_TRACK:
+                ESP_LOGI("MI_TOUCH", "[TOUCH] NEXT_TRACK");
+                if (touch_event_queue) {
+                    evento.tipo = EVENT_NEXT_TRACK;
+                    evento.value = 0;
+                    mi_queue_send(touch_event_queue, &evento, 0);
+                }
                 break;
-            case 5: //NETWORK -> Apaga el LED
-                turn_led_off(strip);
+            case BTN_PREV_TRACK:
+                ESP_LOGI("MI_TOUCH", "[TOUCH] PREV_TRACK");
+                if (touch_event_queue) {
+                    evento.tipo = EVENT_PREV_TRACK;
+                    evento.value = 0;
+                    mi_queue_send(touch_event_queue, &evento, 0);
+                }
+                break;
+            case BTN_STOP:
+                ESP_LOGI("MI_TOUCH", "[TOUCH] STOP");
+                if (touch_event_queue) {
+                    evento.tipo = EVENT_STOP;
+                    evento.value = 0;
+                    mi_queue_send(touch_event_queue, &evento, 0);
+                }
                 break;
             default:
+                ESP_LOGW("MI_TOUCH", "[TOUCH] Evento desconocido: %d", STATE);
                 break;
         }
     }
+}
+
+void mi_touch_init_with_queue(QueueHandle_t queue) {
+    touch_event_queue = queue;
+    xTaskCreate(touch_event_task, "touch_event_task", 2048, NULL, 5, NULL);
 }

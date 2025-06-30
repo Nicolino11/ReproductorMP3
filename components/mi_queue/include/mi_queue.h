@@ -8,11 +8,13 @@
 */
 
 typedef enum {
-    LED_OFF = 0,
-    LED_ON,
-    LED_BRIGHTNESS
+    EVENT_NEXT_TRACK,
+    EVENT_PREV_TRACK,
+    EVENT_VOL_UP,
+    EVENT_VOL_DOWN,
+    EVENT_PLAY_PAUSE,
+    EVENT_STOP
 } mi_tipo_evento_t;
-
 
 typedef struct {
     int r;
@@ -20,6 +22,11 @@ typedef struct {
     int b;
     int tiempo_ms;
     float brghtness;
+} mi_evento_player;
+
+typedef struct {
+    mi_tipo_evento_t tipo;
+    int value; // Puede usarse para volumen, 1=play/pause, etc. Si no aplica, poner 0
 } mi_evento_t;
 
 // Inicializa la cola y retorna el handle
