@@ -11,6 +11,7 @@
 #include "es8311.h"
 #include "mi_audio_config.h"
 #include "mi_queue.h"
+#include "mi_led.h"
 
 static const char *TAG = "i2s_es8311";
 //static const char err_reason[][30] = {"input param is invalid", "operation timeout"};
@@ -33,6 +34,9 @@ static SemaphoreHandle_t volume_mutex = NULL;
 static SemaphoreHandle_t music_change_mutex = NULL;
 volatile bool change_track_next = false;
 volatile bool change_track_prev = false;
+
+led_strip_t *strip;
+int R = 255, G = 0, B = 0;
 
 //--> Añadimos las canciones
 //extern const uint8_t alive_pcm_start[] asm("_binary_alive_pcm_start");
@@ -203,6 +207,11 @@ static void i2s_music(void *args)
         if (remaining < chunk) {
             chunk = remaining;
         }
+        turn_led_on(strip, R, G, B);
+        vTaskDelay(pdMS_TO_TICKS(250));
+        turn_led_off(strip);
+        vTaskDelay(pdMS_TO_TICKS(250));
+
         ret = i2s_channel_write(tx_handle, data_ptr, chunk, &bytes_write, portMAX_DELAY);
         if (ret != ESP_OK || bytes_write == 0) {
             ESP_LOGE(TAG, "[music] i2s write failed or no data written.");
@@ -273,6 +282,8 @@ void music_change_testbench_task(void *arg)
 //---------TERMINAN LOS TESTBENCHS---------//
 void mi_audio_init(void)
 {
+    led_rgb_init(&strip);
+
     printf("i2s es8311 codec example start\n-----------------------------\n");
     /* Initialize i2s peripheral */
     if (i2s_driver_init() != ESP_OK) {
