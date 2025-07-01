@@ -39,8 +39,8 @@ led_strip_t *strip;
 int R = 255, G = 0, B = 0;
 
 //--> Añadimos las canciones
-//extern const uint8_t alive_pcm_start[] asm("_binary_alive_pcm_start");
-//extern const uint8_t alive_pcm_end[]   asm("_binary_alive_pcm_end");
+extern const uint8_t mission_pcm_start[] asm("_binary_mission_pcm_start");
+extern const uint8_t mission_pcm_end[]   asm("_binary_mission_pcm_end");
 
 extern const uint8_t butterfly_pcm_start[] asm("_binary_butterfly_pcm_start");
 extern const uint8_t butterfly_pcm_end[]   asm("_binary_butterfly_pcm_end");
@@ -56,7 +56,7 @@ typedef struct {
 
 //--> Creamos el array de canciones 
 static const music_track_t tracks[] = {
-    //{ alive_pcm_start, alive_pcm_end },
+    { mission_pcm_start, mission_pcm_end },
     { butterfly_pcm_start, butterfly_pcm_end },
     { dance_pcm_start, dance_pcm_end }
 };
@@ -207,11 +207,6 @@ static void i2s_music(void *args)
         if (remaining < chunk) {
             chunk = remaining;
         }
-        turn_led_on(strip, R, G, B);
-        vTaskDelay(pdMS_TO_TICKS(250));
-        turn_led_off(strip);
-        vTaskDelay(pdMS_TO_TICKS(250));
-
         ret = i2s_channel_write(tx_handle, data_ptr, chunk, &bytes_write, portMAX_DELAY);
         if (ret != ESP_OK || bytes_write == 0) {
             ESP_LOGE(TAG, "[music] i2s write failed or no data written.");
@@ -330,6 +325,24 @@ void mi_audio_init(void)
     //xTaskCreate(music_change_testbench_task, "music_change_testbench", 2048, NULL, 4, NULL); //TB de cambio
 }
 
+void led_task(void *arg)
+{
+    bool led_pause = false;
+    while (1) {
+        if (xSemaphoreTake(music_change_mutex, portMAX_DELAY) == pdTRUE) {
+            led_pause = paused;
+            xSemaphoreGive(music_change_mutex);
+        }
+        if (led_pause == false){
+            turn_led_on(strip, R, G, B);
+            vTaskDelay(pdMS_TO_TICKS(250));
+            turn_led_off(strip);
+            vTaskDelay(pdMS_TO_TICKS(250));
+        }
+    }
+}
+
+
 static void audio_event_task(void *arg)
 {
     mi_evento_t evento;
@@ -390,4 +403,5 @@ void mi_audio_init_with_queue(QueueHandle_t queue)
     mi_audio_init();
     // Crear una task para procesar eventos de la queue
     xTaskCreate(audio_event_task, "audio_event_task", 2048, NULL, 5, NULL);
+    xTaskCreate(led_task, "led_task", 2048, NULL, 5, NULL);
 }

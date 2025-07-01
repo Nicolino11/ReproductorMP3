@@ -5,4 +5,5 @@ idf_component_register(
     EMBED_FILES
         "butterfly.pcm"
         "dance.pcm"
+        "mission.pcm"
 )
