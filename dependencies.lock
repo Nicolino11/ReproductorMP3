@@ -24,5 +24,5 @@ direct_dependencies:
 - i2s_examples_common
 - idf
 manifest_hash: e2adf178e50502ddb084ab2746682bacee07968ec766927c1f73b7ddd56ab1af
-target: esp32s2
+target: esp32
 version: 2.0.0
