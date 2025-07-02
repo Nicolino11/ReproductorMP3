@@ -11,7 +11,9 @@
 
 extern const uint8_t index_html_start[] asm("_binary_index_html_start");
 static const char *TAG = "WEB_SERVER";
-static int cont = 0;
+// static int cont = 0;
+
+static QueueHandle_t web_event_queue = NULL;
 
 const httpd_uri_t prevSong = {
     .uri = "/prevSong",
@@ -24,6 +26,12 @@ const httpd_uri_t nextSong = {
     .method = HTTP_POST,
     .handler = next_track_handler,
     .user_ctx = NULL};
+
+const httpd_uri_t stopSong = {
+    .uri = "/stopSong",
+    .method = HTTP_POST,
+    .handler = stop_song_handler,
+    .user_ctx = NULL}
 
 const httpd_uri_t VolUp = {
     .uri = "/VolUp",
@@ -49,12 +57,6 @@ httpd_uri_t delete_last_song_uri = {
     .handler = delete_last_song_handler,
     .user_ctx = NULL};
 
-httpd_uri_t list_songs = {
-    .uri = "/listFiles",
-    .method = HTTP_GET,
-    .handler = list_files_handler,
-    .user_ctx = NULL};
-
 httpd_uri_t get_mqtt_handler = {
     .uri = "/getMQTTCredentials",
     .method = HTTP_GET,
@@ -67,7 +69,6 @@ const httpd_uri_t mqtt_config = {
     .handler = mqtt_config_post_handler,
     .user_ctx = NULL};
 
-
 httpd_handle_t start_webserver(void)
 {
     httpd_handle_t server = NULL;
@@ -75,7 +76,7 @@ httpd_handle_t start_webserver(void)
     config.lru_purge_enable = true;
     config.max_uri_handlers = 20;
 
-    cont = load_counter_from_nvs();
+    // cont = load_counter_from_nvs();
 
     // Iniciar el servidor httpd
     ESP_LOGI(TAG, "Starting server on port: '%d'", config.server_port);
@@ -91,14 +92,14 @@ httpd_handle_t start_webserver(void)
         httpd_register_uri_handler(server, &wifi_credentials_handler);
 
         // Otros URI handlers
-        httpd_register_uri_handler(server, &hello_handler);
         httpd_register_uri_handler(server, &prevSong);
         httpd_register_uri_handler(server, &nextSong);
         httpd_register_uri_handler(server, &VolUp);
         httpd_register_uri_handler(server, &volDown);
         httpd_register_uri_handler(server, &PlayPause);
-        httpd_register_uri_handler(server, &list_songs);
-        httpd_register_uri_handler(server, &delete_last_song_uri);
+        httpd_register_uri_handler(server, &stopSong);
+
+        // httpd_register_uri_handler(server, &delete_last_song_uri);
 
 #if CONFIG_EXAMPLE_BASIC_AUTH
         httpd_register_basic_auth(server);
@@ -142,22 +143,15 @@ void connect_handler(void *arg, esp_event_base_t event_base,
     }
 }
 
-// Handler para la ruta "/"
-static esp_err_t hello_handler(httpd_req_t *req)
-{
-    ESP_LOGI(TAG, "Solicitud recibida para URI: %s", req->uri);
-    httpd_resp_set_type(req, "text/html");
-    extern const char resp[] asm("_binary_index_html_start");
-    httpd_resp_send(req, resp, strlen(resp));
-
-    return ESP_OK;
-}
-
 esp_err_t previous_track_handler(httpd_req_t *req)
 {
     ESP_LOGI(TAG, "Prev/Pause up handler activated");
     httpd_resp_sendstr(req, "Previous track command received");
-    mi_audio_prev_track();
+    mi_evento_t evento = {0};
+    evento.tipo = EVENT_PREV_TRACK;
+    evento.value = 0;
+    mi_queue_send(web_event_queue, &evento, 0);
+
     return ESP_OK;
 }
 
@@ -165,7 +159,11 @@ esp_err_t next_track_handler(httpd_req_t *req)
 {
     ESP_LOGI(TAG, "Next Song handler activated");
     httpd_resp_sendstr(req, "Next track command received");
-    mi_audio_next_track();
+    mi_evento_t evento = {0};
+    evento.tipo = EVENT_NEXT_TRACK;
+    evento.value = 0;
+    mi_queue_send(web_event_queue, &evento, 0);
+
     return ESP_OK;
 }
 
@@ -173,7 +171,9 @@ esp_err_t volume_up_handler(httpd_req_t *req)
 {
     ESP_LOGI(TAG, "Volume up handler activated");
     httpd_resp_sendstr(req, "Volume up command received");
-    mi_audio_volume_up();
+    evento.tipo = EVENT_VOL_UP;
+    evento.value = 0;
+    mi_queue_send(web_event_queue, &evento, 0);
     return ESP_OK;
 }
 
@@ -181,15 +181,28 @@ esp_err_t volume_down_handler(httpd_req_t *req)
 {
     ESP_LOGI(TAG, "Volume Down  handler activated");
     httpd_resp_sendstr(req, "Volume down command received");
-    mi_audio_volume_down();
+    evento.tipo = EVENT_VOL_DOWN;
+    evento.value = 0;
+    mi_queue_send(web_event_queue, &evento, 0);
     return ESP_OK;
 }
 
 esp_err_t play_pause_handler(httpd_req_t *req)
 {
-    mi_audio_play_pause();
     ESP_LOGI(TAG, "Play Pause handler activated");
     httpd_resp_sendstr(req, "Play/Pause command received");
+    evento.tipo = EVENT_PLAY_PAUSE;
+    evento.value = 0;
+    mi_queue_send(web_event_queue, &evento, 0);
+    return ESP_OK;
+}
+
+esp_err_t stop_song_handler(httpd_req_t *req)
+{
+    httpd_resp_sendstr(req, "Stop command received");
+    evento.tipo = EVENT_STOP;
+    evento.value = 0;
+    mi_queue_send(web_event_queue, &evento, 0);
     return ESP_OK;
 }
 
@@ -331,15 +344,23 @@ esp_err_t mqtt_config_post_handler(httpd_req_t *req)
     ESP_LOGI(TAG, "MQTT URL: %s, MQTT Port: %ld", mqtt_url, mqtt_port);
 
     // Guardar configuración MQTT en NVS
-    esp_err_t err = nvs_handler_set_mqtt_config(mqtt_url, mqtt_port);
-    if (err != ESP_OK)
-    {
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to save MQTT config");
-        return ESP_FAIL;
-    }
+    // esp_err_t err = nvs_handler_set_mqtt_config(mqtt_url, mqtt_port);
+    // if (err != ESP_OK)
+    // {
+    //     httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to save MQTT config");
+    //     return ESP_FAIL;
+    // }
 
     // Enviar una respuesta de éxito al cliente
     httpd_resp_sendstr(req, "MQTT config received successfully");
 
     return ESP_OK;
 }
+
+void mi_web_server_init_with_queue(QueHandle_t queue)
+{
+    web_event_queue = queue;
+    start_webserver();
+}
+
+esp_err_t get_wifi_credentials_handler(void) {}
