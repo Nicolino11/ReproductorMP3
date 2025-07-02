@@ -5,5 +5,9 @@ idf_component_register(
     EMBED_FILES
         "butterfly.pcm"
         "dance.pcm"
+        "doom.pcm"
         "mission.pcm"
+        "pacman.pcm"
+        "tetris.pcm"
+        "undertale.pcm"
 )
