@@ -16,10 +16,8 @@
         "stdint.h": "c",
         "mi_delay.h": "c",
         "touch_pad.h": "c",
-        "mi_led.h": "c",
-        "mi_queue.h": "c"
+        "mi_led.h": "c"
     },
     "idf.flashType": "UART",
-    "idf.portWin": "COM12",
-    "C_Cpp.errorSquiggles": "disabled"
+    "idf.portWin": "COM4"
 }

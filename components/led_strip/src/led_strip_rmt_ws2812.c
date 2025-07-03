@@ -37,6 +37,15 @@ static const char *TAG = "ws2812";
 #define WS2812_T1L_NS (350)
 #define WS2812_RESET_US (280)
 
+
+#ifndef GPIO_NUM_45
+// typedef enum {
+//     GPIO_NUM_46 = 46,
+// } _deprecated_gpio_num_t;
+#endif
+// #define KALUGA_RGB_LED_PIN GPIO_NUM_46
+
+
 #define KALUGA_RGB_LED_PIN GPIO_NUM_45
 #define KALUGA_RGB_LED_NUMBER 1
 

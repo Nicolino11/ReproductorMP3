@@ -24,5 +24,6 @@ void app_main(void)
     mi_audio_init_with_queue(queue);
     mi_touch_init_with_queue(queue);
     mi_mqtt_init_with_queue(queue);
+    mi_web_server_init_with_queue(queue);
 
 }

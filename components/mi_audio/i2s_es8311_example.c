@@ -42,8 +42,8 @@ int R = 255, G = 0, B = 0;
 extern const uint8_t doom_pcm_start[] asm("_binary_doom_pcm_start");
 extern const uint8_t doom_pcm_end[]   asm("_binary_doom_pcm_end");
 
-extern const uint8_t butterfly_pcm_start[] asm("_binary_butterfly_pcm_start");
-extern const uint8_t butterfly_pcm_end[]   asm("_binary_butterfly_pcm_end");
+//extern const uint8_t butterfly_pcm_start[] asm("_binary_butterfly_pcm_start");
+//extern const uint8_t butterfly_pcm_end[]   asm("_binary_butterfly_pcm_end");
 
 extern const uint8_t dance_pcm_start[] asm("_binary_dance_pcm_start");
 extern const uint8_t dance_pcm_end[]   asm("_binary_dance_pcm_end");
@@ -69,7 +69,7 @@ typedef struct {
 //--> Creamos el array de canciones 
 static const music_track_t tracks[] = {
     { doom_pcm_start, doom_pcm_end },
-    { butterfly_pcm_start, butterfly_pcm_end },
+    //{ butterfly_pcm_start, butterfly_pcm_end },
     { dance_pcm_start, dance_pcm_end },
     { mission_pcm_start, mission_pcm_end },
     { tetris_pcm_start, tetris_pcm_end },
