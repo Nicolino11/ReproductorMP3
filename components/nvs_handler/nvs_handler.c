@@ -3,6 +3,8 @@
 #include "nvs_flash.h"
 #include "esp_wifi.h"
 #include "string.h"
+#include <ctype.h>
+#include <stdint.h>
 
 static const char *TAG = "NVS_HANDLER";
 
@@ -208,7 +210,7 @@ void url_decode(char *dst, const char *src)
     }
     *dst++ = '\0';
 }
-void save_counter_to_nvs(int counter)
+void save_counter_to_nvs(int32_t counter)
 {
     nvs_handle_t my_handle;
     esp_err_t err = nvs_open("storage", NVS_READWRITE, &my_handle);
@@ -227,10 +229,10 @@ void save_counter_to_nvs(int counter)
         ESP_LOGE(TAG, "Error (%s) saving counter to NVS!", esp_err_to_name(err));
     }
 }
-int load_counter_from_nvs()
+int32_t load_counter_from_nvs()
 {
     nvs_handle_t my_handle;
-    int counter = 0; // Valor predeterminado
+    int32_t counter = 0; // Valor predeterminado
 
     esp_err_t err = nvs_open("storage", NVS_READONLY, &my_handle);
     if (err == ESP_OK)

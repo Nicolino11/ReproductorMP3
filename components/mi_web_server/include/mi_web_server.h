@@ -7,6 +7,8 @@
 #include "mi_audio.h"
 #include "mi_wifi_ap.h"
 #include "mi_delay.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
 
 httpd_handle_t start_webserver(void);
 
@@ -29,5 +31,8 @@ esp_err_t delete_last_song_handler(httpd_req_t *req);
 esp_err_t get_mqtt_config_handler(httpd_req_t *req);
 esp_err_t mqtt_config_post_handler(httpd_req_t *req);
 
-const httpd_uri_t button;
+esp_err_t get_wifi_credentials_handler(httpd_req_t *req);
+
+void mi_web_server_init_with_queue(QueueHandle_t queue);
+
 #endif // MI_WEB_SERVER_H

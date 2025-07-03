@@ -8,6 +8,19 @@
 #include <string.h>
 #include <stdlib.h>
 #include "spiff_handler.h"
+#include "nvs_handler.h"
+
+// Declaraciones anticipadas de handlers
+esp_err_t previous_track_handler(httpd_req_t *req);
+esp_err_t next_track_handler(httpd_req_t *req);
+esp_err_t stop_song_handler(httpd_req_t *req);
+esp_err_t volume_up_handler(httpd_req_t *req);
+esp_err_t volume_down_handler(httpd_req_t *req);
+esp_err_t play_pause_handler(httpd_req_t *req);
+esp_err_t delete_last_song_handler(httpd_req_t *req);
+esp_err_t get_mqtt_config_handler(httpd_req_t *req);
+esp_err_t mqtt_config_post_handler(httpd_req_t *req);
+esp_err_t get_wifi_credentials_handler(httpd_req_t *req);
 
 extern const uint8_t index_html_start[] asm("_binary_index_html_start");
 static const char *TAG = "WEB_SERVER";
@@ -31,7 +44,7 @@ const httpd_uri_t stopSong = {
     .uri = "/stopSong",
     .method = HTTP_POST,
     .handler = stop_song_handler,
-    .user_ctx = NULL}
+    .user_ctx = NULL};
 
 const httpd_uri_t VolUp = {
     .uri = "/VolUp",
@@ -171,6 +184,7 @@ esp_err_t volume_up_handler(httpd_req_t *req)
 {
     ESP_LOGI(TAG, "Volume up handler activated");
     httpd_resp_sendstr(req, "Volume up command received");
+    mi_evento_t evento = {0};
     evento.tipo = EVENT_VOL_UP;
     evento.value = 0;
     mi_queue_send(web_event_queue, &evento, 0);
@@ -181,6 +195,7 @@ esp_err_t volume_down_handler(httpd_req_t *req)
 {
     ESP_LOGI(TAG, "Volume Down  handler activated");
     httpd_resp_sendstr(req, "Volume down command received");
+    mi_evento_t evento = {0};
     evento.tipo = EVENT_VOL_DOWN;
     evento.value = 0;
     mi_queue_send(web_event_queue, &evento, 0);
@@ -191,6 +206,7 @@ esp_err_t play_pause_handler(httpd_req_t *req)
 {
     ESP_LOGI(TAG, "Play Pause handler activated");
     httpd_resp_sendstr(req, "Play/Pause command received");
+    mi_evento_t evento = {0};
     evento.tipo = EVENT_PLAY_PAUSE;
     evento.value = 0;
     mi_queue_send(web_event_queue, &evento, 0);
@@ -200,6 +216,7 @@ esp_err_t play_pause_handler(httpd_req_t *req)
 esp_err_t stop_song_handler(httpd_req_t *req)
 {
     httpd_resp_sendstr(req, "Stop command received");
+    mi_evento_t evento = {0};
     evento.tipo = EVENT_STOP;
     evento.value = 0;
     mi_queue_send(web_event_queue, &evento, 0);
@@ -357,10 +374,10 @@ esp_err_t mqtt_config_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-void mi_web_server_init_with_queue(QueHandle_t queue)
+void mi_web_server_init_with_queue(QueueHandle_t queue)
 {
     web_event_queue = queue;
     start_webserver();
 }
 
-esp_err_t get_wifi_credentials_handler(void) {}
+esp_err_t get_wifi_credentials_handler(httpd_req_t *req) { return ESP_OK; }
