@@ -11,6 +11,7 @@
 #include "es8311.h"
 #include "mi_audio_config.h"
 #include "mi_queue.h"
+#include "mi_led.h"
 
 static const char *TAG = "i2s_es8311";
 //static const char err_reason[][30] = {"input param is invalid", "operation timeout"};
@@ -34,15 +35,30 @@ static SemaphoreHandle_t music_change_mutex = NULL;
 volatile bool change_track_next = false;
 volatile bool change_track_prev = false;
 
+led_strip_t *strip;
+int R = 255, G = 0, B = 0;
+
 //--> Añadimos las canciones
-//extern const uint8_t alive_pcm_start[] asm("_binary_alive_pcm_start");
-//extern const uint8_t alive_pcm_end[]   asm("_binary_alive_pcm_end");
+extern const uint8_t doom_pcm_start[] asm("_binary_doom_pcm_start");
+extern const uint8_t doom_pcm_end[]   asm("_binary_doom_pcm_end");
 
 extern const uint8_t butterfly_pcm_start[] asm("_binary_butterfly_pcm_start");
 extern const uint8_t butterfly_pcm_end[]   asm("_binary_butterfly_pcm_end");
 
 extern const uint8_t dance_pcm_start[] asm("_binary_dance_pcm_start");
 extern const uint8_t dance_pcm_end[]   asm("_binary_dance_pcm_end");
+
+extern const uint8_t mission_pcm_start[] asm("_binary_mission_pcm_start");
+extern const uint8_t mission_pcm_end[]   asm("_binary_mission_pcm_end");
+
+extern const uint8_t tetris_pcm_start[] asm("_binary_tetris_pcm_start");
+extern const uint8_t tetris_pcm_end[]   asm("_binary_tetris_pcm_end");
+
+extern const uint8_t pacman_pcm_start[] asm("_binary_pacman_pcm_start");
+extern const uint8_t pacman_pcm_end[]   asm("_binary_pacman_pcm_end");
+
+extern const uint8_t undertale_pcm_start[] asm("_binary_undertale_pcm_start");
+extern const uint8_t undertale_pcm_end[]   asm("_binary_undertale_pcm_end");
 
 //--> Tipo de dato para guardar la cancion
 typedef struct {
@@ -52,9 +68,13 @@ typedef struct {
 
 //--> Creamos el array de canciones 
 static const music_track_t tracks[] = {
-    //{ alive_pcm_start, alive_pcm_end },
+    { doom_pcm_start, doom_pcm_end },
     { butterfly_pcm_start, butterfly_pcm_end },
-    { dance_pcm_start, dance_pcm_end }
+    { dance_pcm_start, dance_pcm_end },
+    { mission_pcm_start, mission_pcm_end },
+    { tetris_pcm_start, tetris_pcm_end },
+    { pacman_pcm_start, pacman_pcm_end },
+    { undertale_pcm_start, undertale_pcm_end }
 };
 
 static size_t current_track = 0;
@@ -103,7 +123,7 @@ static esp_err_t i2s_driver_init(void)
     ESP_ERROR_CHECK(i2s_new_channel(&chan_cfg, &tx_handle, &rx_handle));
     i2s_std_config_t std_cfg = {
         .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(EXAMPLE_SAMPLE_RATE),
-        .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO),
+        .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO),
         .gpio_cfg = {
             .mclk = I2S_MCK_IO,
             .bclk = I2S_BCK_IO,
@@ -273,6 +293,8 @@ void music_change_testbench_task(void *arg)
 //---------TERMINAN LOS TESTBENCHS---------//
 void mi_audio_init(void)
 {
+    led_rgb_init(&strip);
+
     printf("i2s es8311 codec example start\n-----------------------------\n");
     /* Initialize i2s peripheral */
     if (i2s_driver_init() != ESP_OK) {
@@ -318,6 +340,24 @@ void mi_audio_init(void)
     //xTaskCreate(volume_testbench_task, "volume_test", 2048, NULL, 4, NULL); //TB de volumen
     //xTaskCreate(music_change_testbench_task, "music_change_testbench", 2048, NULL, 4, NULL); //TB de cambio
 }
+
+void led_task(void *arg)
+{
+    bool led_pause = false;
+    while (1) {
+        if (xSemaphoreTake(music_change_mutex, portMAX_DELAY) == pdTRUE) {
+            led_pause = paused;
+            xSemaphoreGive(music_change_mutex);
+        }
+        if (led_pause == false){
+            turn_led_on(strip, R, G, B);
+            vTaskDelay(pdMS_TO_TICKS(250));
+            turn_led_off(strip);
+            vTaskDelay(pdMS_TO_TICKS(250));
+        }
+    }
+}
+
 
 static void audio_event_task(void *arg)
 {
@@ -379,4 +419,5 @@ void mi_audio_init_with_queue(QueueHandle_t queue)
     mi_audio_init();
     // Crear una task para procesar eventos de la queue
     xTaskCreate(audio_event_task, "audio_event_task", 2048, NULL, 5, NULL);
+    xTaskCreate(led_task, "led_task", 2048, NULL, 5, NULL);
 }
