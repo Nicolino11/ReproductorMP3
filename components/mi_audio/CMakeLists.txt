@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "mi_audio.c" "i2s_es8311_example.c"
+    SRCS "i2s_es8311_example.c"
     INCLUDE_DIRS "include"
     REQUIRES esp_driver_i2s esp_driver_gpio mi_queue
     EMBED_FILES
