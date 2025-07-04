@@ -1,0 +1,14 @@
+{
+    "mqtt_url": "mqtt://broker.hivemq.com",
+    "sta_ssid": "your_ssid",
+    "sta_password": "your_password",
+    "play_list" : [
+        "butterfly.pcm",
+        "dance.pcm",
+        "doom.pcm",
+        "mission.pcm",
+        "pacman.pcm",
+        "tetris.pcm",
+        "undertale.pcm"
+    ]
+}

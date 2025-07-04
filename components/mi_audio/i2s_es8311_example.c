@@ -12,6 +12,7 @@
 #include "mi_audio_config.h"
 #include "mi_queue.h"
 #include "mi_led.h"
+#include "mi_fs.h"
 
 static const char *TAG = "i2s_es8311";
 //static const char err_reason[][30] = {"input param is invalid", "operation timeout"};
@@ -81,6 +82,7 @@ static size_t current_track = 0;
 static size_t total_tracks = sizeof(tracks) / sizeof(tracks[0]);
 
 static QueueHandle_t audio_event_queue = NULL;
+static Logger event_logger;
 
 //--> Esto inicia la comunicacion con la ES8311 a traves de I2C
 static esp_err_t es8311_codec_init(void)
@@ -371,6 +373,7 @@ static void audio_event_task(void *arg)
                     if (xSemaphoreTake(music_change_mutex, portMAX_DELAY) == pdTRUE) {
                         change_track_next = true;
                         xSemaphoreGive(music_change_mutex);
+                        store_logger_event(&event_logger, "EVENT_NEXT_TRACK");
                     }
                     break;
                 case EVENT_PREV_TRACK:
@@ -378,6 +381,7 @@ static void audio_event_task(void *arg)
                     if (xSemaphoreTake(music_change_mutex, portMAX_DELAY) == pdTRUE) {
                         change_track_prev = true;
                         xSemaphoreGive(music_change_mutex);
+                        store_logger_event(&event_logger, "EVENT_PREV_TRACK");
                     }
                     break;
                 case EVENT_VOL_UP:
@@ -385,6 +389,7 @@ static void audio_event_task(void *arg)
                     if (xSemaphoreTake(volume_mutex, portMAX_DELAY) == pdTRUE) {
                         if (volume < 100) volume += 5;
                         xSemaphoreGive(volume_mutex);
+                        store_logger_event(&event_logger, "EVENT_VOL_UP");
                     }
                     break;
                 case EVENT_VOL_DOWN:
@@ -392,6 +397,7 @@ static void audio_event_task(void *arg)
                     if (xSemaphoreTake(volume_mutex, portMAX_DELAY) == pdTRUE) {
                         if (volume > 5) volume -= 5;
                         xSemaphoreGive(volume_mutex);
+                        store_logger_event(&event_logger, "EVENT_VOL_DOWN");
                     }
                     break;
                 case EVENT_PLAY_PAUSE:
@@ -399,6 +405,7 @@ static void audio_event_task(void *arg)
                     if (xSemaphoreTake(paused_mutex, portMAX_DELAY) == pdTRUE) {
                         paused = !paused;
                         xSemaphoreGive(paused_mutex);
+                        store_logger_event(&event_logger, "EVENT_PLAY_PAUSE");
                     }
                     break;
                 case EVENT_STOP:
@@ -413,9 +420,11 @@ static void audio_event_task(void *arg)
     }
 }
 
-void mi_audio_init_with_queue(QueueHandle_t queue)
+void mi_audio_init_with_queue(QueueHandle_t queue, Logger logger)
 {
     audio_event_queue = queue;
+    event_logger = logger;
+
     mi_audio_init();
     // Crear una task para procesar eventos de la queue
     xTaskCreate(audio_event_task, "audio_event_task", 2048, NULL, 5, NULL);
