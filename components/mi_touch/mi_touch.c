@@ -5,7 +5,7 @@
 #include "freertos/FreeRTOS.h"
 #include "mi_queue.h"
 
-#define TOUCH_THRESHOLD 30000 //--> Umbral para el valor en crudo que detecta si fue presionado
+#define TOUCH_THRESHOLD 20000 //--> Umbral para el valor en crudo que detecta si fue presionado
 #define TOUCH_BUTTON_NUM 6 //--> Cantidad de botones
 
 // Definición de índices para los botones del touchpad

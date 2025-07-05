@@ -241,58 +241,6 @@ static void i2s_music(void *args)
     vTaskDelete(NULL);
 }
 
-//-----------TESTBENCHS LOCALES------------//
-void pause_testbench_task(void *arg)
-{
-    while (1) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
-        if (xSemaphoreTake(paused_mutex, portMAX_DELAY) == pdTRUE) {
-            paused = true;
-            xSemaphoreGive(paused_mutex);
-        }
-        vTaskDelay(pdMS_TO_TICKS(1000));
-        if (xSemaphoreTake(paused_mutex, portMAX_DELAY) == pdTRUE) {
-            paused = false;
-            xSemaphoreGive(paused_mutex);
-        }
-    }
-}
-void volume_testbench_task(void *arg)
-{
-    while (1) {
-        for (int i = 10; i <= 70; i += 10) {
-            volume = i;
-            ESP_LOGI("VOL_TEST", "Setting volume: %d", i);
-            vTaskDelay(pdMS_TO_TICKS(1000));
-        }
-        for (int i = 70; i >= 10; i -= 10) {
-            volume = i;
-            ESP_LOGI("VOL_TEST", "Setting volume: %d", i);
-            vTaskDelay(pdMS_TO_TICKS(1000));
-        }
-    }
-}
-void music_change_testbench_task(void *arg)
-{
-    bool toggle = true; // Alterna entre next y prev
-
-    while (1) {
-        vTaskDelay(pdMS_TO_TICKS(10000));  // Cada 10 segundos solicita el cambio
-
-        if (xSemaphoreTake(music_change_mutex, portMAX_DELAY) == pdTRUE) {
-            if (toggle) {
-                change_track_next = true;
-                ESP_LOGI(TAG, "Testbench: Requested track NEXT");
-            } else {
-                change_track_prev = true;
-                ESP_LOGI(TAG, "Testbench: Requested track PREV");
-            }
-            toggle = !toggle;  // Cambiar para la próxima vez
-            xSemaphoreGive(music_change_mutex);
-        }
-    }
-}
-//---------TERMINAN LOS TESTBENCHS---------//
 void mi_audio_init(void)
 {
     led_rgb_init(&strip);
@@ -320,6 +268,7 @@ void mi_audio_init(void)
     };
     ESP_ERROR_CHECK(gpio_config(&gpio_cfg));
     ESP_ERROR_CHECK(gpio_set_level(EXAMPLE_PA_CTRL_IO, 1));
+
     //--> Iniciamos los mutex de cada variable
     paused_mutex = xSemaphoreCreateMutex();
     if (paused_mutex == NULL) {
@@ -336,11 +285,8 @@ void mi_audio_init(void)
         ESP_LOGE(TAG, "Failed to create volume mutex");
         abort();
     }
-    //--> Creamos la tasks de i2s y las taks de los testbench
+    //--> Creamos la task de i2s_music
     xTaskCreate(i2s_music, "i2s_music", 4096, NULL, 5, NULL);
-    //xTaskCreate(pause_testbench_task, "pause_test", 2048, NULL, 4, NULL); //TB de pausa
-    //xTaskCreate(volume_testbench_task, "volume_test", 2048, NULL, 4, NULL); //TB de volumen
-    //xTaskCreate(music_change_testbench_task, "music_change_testbench", 2048, NULL, 4, NULL); //TB de cambio
 }
 
 void led_task(void *arg)

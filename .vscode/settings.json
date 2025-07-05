@@ -1,7 +1,7 @@
 {
     "C_Cpp.intelliSenseEngine": "default",
     "idf.espIdfPathWin": "C:\\Users\\Usuario\\esp\\v5.4.1\\esp-idf",
-    "idf.pythonInstallPath": "/opt/homebrew/bin/python",
+    "idf.pythonInstallPath": "C:\\Users\\Usuario\\.espressif\\tools\\idf-python\\3.11.2\\python.exe",
     "idf.openOcdConfigs": [
         "board/esp32s2-kaluga-1.cfg"
     ],
@@ -19,6 +19,6 @@
         "mi_led.h": "c"
     },
     "idf.flashType": "UART",
-    "idf.portWin": "COM4",
+    "idf.portWin": "COM6",
     "idf.port": "/dev/tty.usbserial-1201"
 }
