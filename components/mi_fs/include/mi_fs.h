@@ -3,7 +3,7 @@
 
 typedef struct {
     int pointer;
-    char events[20][32]; // array de hasta 20 strings de 31 caracteres + null
+    char events[20][64]; // array de hasta 20 strings de 31 caracteres + null
 } Logger;
 
 
@@ -11,7 +11,7 @@ typedef struct {
     char mqtt_url[64]; // URL del broker MQTT
     char sta_ssid[32]; // SSID de la red WiFi
     char sta_password[32]; // Contraseña de la red WiFi
-    char play_list[10][32]; // Lista de reproducción con 7 canciones 
+    char play_list[7][32]; // Lista de reproducción con 7 canciones 
 } Config;
 
 void mi_fs_init();

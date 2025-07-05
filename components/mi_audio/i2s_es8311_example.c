@@ -427,6 +427,6 @@ void mi_audio_init_with_queue(QueueHandle_t queue, Logger logger)
 
     mi_audio_init();
     // Crear una task para procesar eventos de la queue
-    xTaskCreate(audio_event_task, "audio_event_task", 2048, NULL, 5, NULL);
-    xTaskCreate(led_task, "led_task", 2048, NULL, 5, NULL);
+    xTaskCreate(audio_event_task, "audio_event_task", 8192, NULL, 5, NULL);
+    xTaskCreate(led_task, "led_task", 8192, NULL, 5, NULL);
 }

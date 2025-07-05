@@ -1,7 +1,7 @@
 {
-    "mqtt_url": "mqtt://broker.hivemq.com",
-    "sta_ssid": "your_ssid",
-    "sta_password": "your_password",
+    "mqtt_url": "mqtt://192.168.1.22",
+    "sta_ssid": "Antelckcfe-2.4GHz",
+    "sta_password": "xxx",
     "play_list" : [
         "butterfly.pcm",
         "dance.pcm",

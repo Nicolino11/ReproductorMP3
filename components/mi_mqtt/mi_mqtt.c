@@ -3,11 +3,15 @@
 #include "mi_queue.h"
 #include "esp_log.h"
 #include "mqtt_client.h"
+#include "mi_config.h"
 
-#define CONFIG_BROKER_URL "mqtt://192.168.1.16"
+#define CONFIG_BROKER_URL "mqtt://192.168.1.22"
 #define TOPIC_NAME "/player/control"
+#define TOPIC_LOGGER "/player/logger"
 
 static QueueHandle_t player_event_queue = NULL;
+static esp_mqtt_client_handle_t client = NULL;
+static Logger event_logger;
 
 static void log_error_if_nonzero(const char *message, int error_code)
 {
@@ -84,20 +88,62 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     }
 }
 
-static void mqtt_app_start(void)
-{
-    esp_mqtt_client_config_t mqtt_cfg = {
-        .broker.address.uri = CONFIG_BROKER_URL
-    };
-    esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
-    /* The last argument may be used to pass data to the event handler, in this example mqtt_event_handler */
-    esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
-    esp_mqtt_client_start(client);
+static void send_logger_event_to_mqtt(const char *topic, const char *event) {
+    if (client && event) {
+        int msg_id = esp_mqtt_client_publish(client, topic, event, 0, 1, 0);
+        ESP_LOGI("MQTT", "Logger event sent to MQTT: %s, msg_id=%d", event, msg_id);
+    } else {
+        ESP_LOGW("MQTT", "No MQTT client or event to send");
+    }
+}   
+
+static void mi_mqtt_send_all_logger_events() {
+    int idx = event_logger.pointer;
+    int start = idx;
+    int first = 1;
+    do {
+        idx = (idx - 1 + 20) % 20;
+        if (strlen(event_logger.events[idx]) > 0) {
+            send_logger_event_to_mqtt(TOPIC_LOGGER, event_logger.events[idx]);
+        } else if (!first) {
+            break;
+        }
+        first = 0;
+    } while (idx != start);
 }
 
+static void on_mqtt_url_changed(char *new_url) {
+    ESP_LOGI("MQTT", "MQTT URL changed! New URL: %s", new_url);
+    if (client) {
+        esp_mqtt_client_stop(client);
+        esp_mqtt_client_destroy(client);
+        client = NULL;
+    }
+    esp_mqtt_client_config_t mqtt_cfg = {
+        .broker.address.uri = new_url
+    };
+    client = esp_mqtt_client_init(&mqtt_cfg);
+    esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
+    esp_mqtt_client_start(client);
+    mi_mqtt_send_all_logger_events();
+}
 
-void mi_mqtt_init_with_queue(QueueHandle_t queue) {
+static void mqtt_app_start(void)
+{
+    const char *url = mi_config_get_mqtt_url();
+    esp_mqtt_client_config_t mqtt_cfg = {
+        .broker.address.uri = url
+    };
+    client = esp_mqtt_client_init(&mqtt_cfg);
+    esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
+    esp_mqtt_client_start(client);
+    mi_mqtt_send_all_logger_events();
+}
+
+void mi_mqtt_init_with_queue(QueueHandle_t queue, Logger logger) {
     vTaskDelay(pdMS_TO_TICKS(60));
     player_event_queue = queue;
+    event_logger = logger;
+    mi_config_on_mqtt_url_changed(on_mqtt_url_changed);
     mqtt_app_start();
 }
