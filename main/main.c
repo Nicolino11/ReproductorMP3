@@ -27,8 +27,7 @@ void main_task(void *pvParameters) {
     Config *config = mi_config_get();
     QueueHandle_t queue = mi_queue_init(10);
 
-    init_wifi_ap("Placa_WIFI", "Password123");
-    init_connect_wifi_ap(config->sta_ssid, config->sta_password);
+    init_wifi_apsta("Placa_WIFI", "Password123", config->sta_ssid, config->sta_password);
     mi_ntp_time_init(); // Sincroniza la hora con NTP
     
     mi_audio_init_with_queue(queue, logger); // Pasa referencia si es posible

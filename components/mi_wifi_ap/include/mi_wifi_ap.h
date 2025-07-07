@@ -48,3 +48,5 @@ void on_sta_changed(char *new_ssid, char *new_password);
  * @param password Contraseña de la red WiFi a la que se desea conectar.
  */
 void init_connect_wifi_ap(char *ssid, char *password);
+
+void init_wifi_apsta(const char *ap_ssid, const char *ap_password, const char *sta_ssid, const char *sta_password);
