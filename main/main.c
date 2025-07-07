@@ -32,7 +32,7 @@ void main_task(void *pvParameters) {
     
     mi_audio_init_with_queue(queue, logger); // Pasa referencia si es posible
     mi_touch_init_with_queue(queue);
-    mi_mqtt_init_with_queue(queue, logger);
+    mi_mqtt_init_with_queue(queue, logger, config->mqtt_url);
     mi_web_server_init_with_queue(queue);
 
     vTaskDelete(NULL); // Termina la tarea si no es cíclica
