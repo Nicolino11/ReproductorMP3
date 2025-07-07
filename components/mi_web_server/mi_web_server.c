@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include "spiff_handler.h"
 #include "nvs_handler.h"
+#include "cJSON.h"
 
 // Declaraciones anticipadas de handlers
 esp_err_t previous_track_handler(httpd_req_t *req);
@@ -82,6 +83,195 @@ const httpd_uri_t mqtt_config = {
     .handler = mqtt_config_post_handler,
     .user_ctx = NULL};
 
+httpd_uri_t set_wifi_config_uri = {
+    .uri = "/setWifiConfig",
+    .method = HTTP_POST,
+    .handler = set_wifi_config_handler,
+    .user_ctx = NULL};
+
+httpd_uri_t get_logger_uri = {
+    .uri = "/getLogger",
+    .method = HTTP_GET,
+    .handler = get_logger_handler,
+    .user_ctx = NULL};
+
+httpd_uri_t list_songs_uri = {
+    .uri = "/listSongs",
+    .method = HTTP_GET,
+    .handler = list_songs_handler,
+    .user_ctx = NULL};
+
+httpd_uri_t add_song_uri = {
+    .uri = "/addSong",
+    .method = HTTP_POST,
+    .handler = add_song_handler,
+    .user_ctx = NULL};
+
+httpd_uri_t remove_song_uri = {
+    .uri = "/removeSong",
+    .method = HTTP_POST,
+    .handler = remove_song_handler,
+    .user_ctx = NULL};
+
+
+// Guardar configuración WiFi
+esp_err_t set_wifi_config_handler(httpd_req_t *req)
+{
+    char buf[256];
+    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (ret <= 0)
+    {
+        if (ret == HTTPD_SOCK_ERR_TIMEOUT)
+        {
+            httpd_resp_send_408(req);
+        }
+        return ESP_FAIL;
+    }
+    buf[ret] = '\0';
+    ESP_LOGI(TAG, "Received WiFi config: %s", buf);
+
+    // Espera formato: ssid=...&password=...
+    char ssid[64] = {0};
+    char password[64] = {0};
+    char *ssid_start = strstr(buf, "ssid=");
+    if (!ssid_start)
+    {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing ssid");
+        return ESP_FAIL;
+    }
+    ssid_start += strlen("ssid=");
+    char *ssid_end = strchr(ssid_start, '&');
+    if (!ssid_end)
+    {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing password");
+        return ESP_FAIL;
+    }
+    strncpy(ssid, ssid_start, ssid_end - ssid_start);
+    ssid[ssid_end - ssid_start] = '\0';
+
+    char *pass_start = strstr(ssid_end, "password=");
+    if (!pass_start)
+    {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing password");
+        return ESP_FAIL;
+    }
+    pass_start += strlen("password=");
+    strncpy(password, pass_start, sizeof(password) - 1);
+    password[sizeof(password) - 1] = '\0';
+
+    // Guardar en NVS o usar función de mi_wifi_ap
+    esp_err_t err = mi_wifi_ap_set_sta_credentials(ssid, password);
+    if (err != ESP_OK)
+    {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to save WiFi config");
+        return ESP_FAIL;
+    }
+    httpd_resp_sendstr(req, "WiFi config saved");
+    return ESP_OK;
+}
+
+// Mostrar logger (devuelve JSON)
+esp_err_t get_logger_handler(httpd_req_t *req)
+{
+    char *logger_json = NULL;
+    esp_err_t err = mi_logger_get_json(&logger_json); // Debe devolver un string JSON (usar cJSON)
+    if (err != ESP_OK || !logger_json)
+    {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to get logger");
+        return ESP_FAIL;
+    }
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, logger_json, strlen(logger_json));
+    free(logger_json);
+    return ESP_OK;
+}
+
+// Listar canciones disponibles (devuelve JSON)
+esp_err_t list_songs_handler(httpd_req_t *req)
+{
+    char *songs_json = NULL;
+    esp_err_t err = mi_audio_list_songs_json(&songs_json); // Debe devolver un string JSON
+    if (err != ESP_OK || !songs_json)
+    {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to list songs");
+        return ESP_FAIL;
+    }
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, songs_json, strlen(songs_json));
+    free(songs_json);
+    return ESP_OK;
+}
+
+// Agregar una canción a la lista de reproducción
+esp_err_t add_song_handler(httpd_req_t *req)
+{
+    char buf[128];
+    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (ret <= 0)
+    {
+        if (ret == HTTPD_SOCK_ERR_TIMEOUT)
+        {
+            httpd_resp_send_408(req);
+        }
+        return ESP_FAIL;
+    }
+    buf[ret] = '\0';
+    // Espera formato: song=nombre
+    char *song_start = strstr(buf, "song=");
+    if (!song_start)
+    {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing song param");
+        return ESP_FAIL;
+    }
+    song_start += strlen("song=");
+    char song_name[64] = {0};
+    strncpy(song_name, song_start, sizeof(song_name) - 1);
+    song_name[sizeof(song_name) - 1] = '\0';
+    esp_err_t err = mi_audio_add_song(song_name);
+    if (err != ESP_OK)
+    {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to add song");
+        return ESP_FAIL;
+    }
+    httpd_resp_sendstr(req, "Song added");
+    return ESP_OK;
+}
+
+// Quitar una canción de la lista de reproducción
+esp_err_t remove_song_handler(httpd_req_t *req)
+{
+    char buf[128];
+    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (ret <= 0)
+    {
+        if (ret == HTTPD_SOCK_ERR_TIMEOUT)
+        {
+            httpd_resp_send_408(req);
+        }
+        return ESP_FAIL;
+    }
+    buf[ret] = '\0';
+    // Espera formato: song=nombre
+    char *song_start = strstr(buf, "song=");
+    if (!song_start)
+    {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing song param");
+        return ESP_FAIL;
+    }
+    song_start += strlen("song=");
+    char song_name[64] = {0};
+    strncpy(song_name, song_start, sizeof(song_name) - 1);
+    song_name[sizeof(song_name) - 1] = '\0';
+    esp_err_t err = mi_audio_remove_song(song_name);
+    if (err != ESP_OK)
+    {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to remove song");
+        return ESP_FAIL;
+    }
+    httpd_resp_sendstr(req, "Song removed");
+    return ESP_OK;
+}
+
 httpd_handle_t start_webserver(void)
 {
     httpd_handle_t server = NULL;
@@ -117,6 +307,12 @@ httpd_handle_t start_webserver(void)
 #if CONFIG_EXAMPLE_BASIC_AUTH
         httpd_register_basic_auth(server);
 #endif
+        // --- REGISTRO DE NUEVOS ENDPOINTS ---
+        httpd_register_uri_handler(server, &set_wifi_config_uri);
+        httpd_register_uri_handler(server, &get_logger_uri);
+        httpd_register_uri_handler(server, &list_songs_uri);
+        httpd_register_uri_handler(server, &add_song_uri);
+        httpd_register_uri_handler(server, &remove_song_uri);
         return server;
     }
 
@@ -241,7 +437,7 @@ esp_err_t delete_last_song_handler(httpd_req_t *req)
     return result;
 }
 
-/* Función de callback para manejar la solicitud HTTP GET /getMQTTCredentials */
+// Función de callback para manejar la solicitud HTTP GET /getMQTTCredentials
 esp_err_t get_mqtt_config_handler(httpd_req_t *req)
 {
     char url_encoded_mqtt_url[128];
@@ -381,3 +577,10 @@ void mi_web_server_init_with_queue(QueueHandle_t queue)
 }
 
 esp_err_t get_wifi_credentials_handler(httpd_req_t *req) { return ESP_OK; }
+
+// Inicialización simple
+void mi_web_server_init(void) {
+    // Si necesitas una cola, créala aquí o pásala como NULL si no usas eventos
+    // web_event_queue = xQueueCreate(10, sizeof(mi_evento_t));
+    mi_web_server_init_with_queue(web_event_queue);
+}

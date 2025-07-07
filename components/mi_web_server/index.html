@@ -1,68 +1,182 @@
 <!DOCTYPE html>
-    <html>
-    <head>
-        <title>ESP32 Web Server</title>
-        <meta charset='UTF-8'>
-        <style>
-            body { font-family: Arial, sans-serif; margin: 40px; }
-            h1 { color: #2E86AB; }
-            .container { max-width: 600px; margin: 0 auto; }
-            .info { background-color: #f0f8ff; padding: 20px; border-radius: 5px; margin-bottom: 20px; }
-            .control-panel { background-color: #f9f9f9; padding: 20px; border-radius: 5px; text-align: center; }
-            .led-button {
-                padding: 15px 30px;
-                margin: 10px;
-                border: none;
-                border-radius: 5px;
-                font-size: 16px;
-                font-weight: bold;
-                cursor: pointer;
-                color: white;
-                text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
-                transition: transform 0.1s;
-            }
-            .led-button:hover { transform: scale(1.05); }
-            .led-button:active { transform: scale(0.95); }
-            .btn-red { background-color: #dc3545; }
-            .btn-green { background-color: #28a745; }
-            .btn-blue { background-color: #007bff; }
-            .btn-yellow { background-color: #ffc107; color: black; }
-            .btn-off { background-color: #6c757d; }
-        </style>
-        <script>
-            function controlLed(color) {
-                fetch('/led?color=' + color)
-                .then(response => response.text())
-                .then(data => {
-                    console.log('LED cambiado a: ' + color);
-                    document.getElementById('status').innerHTML = 'LED: ' + color.toUpperCase();
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    document.getElementById('status').innerHTML = 'Error al cambiar LED';
-                });
-            }
-        </script>
-    </head>
-    <body>
-        <div class='container'>
-            <h1>¡Hola Mundo!</h1>
-            <div class='info'>
-                <p>Bienvenido al servidor web del ESP32 del grupo de:<br><b>Nicolás Raposo, Martin Da Rosa y Rafael Durán</b></p>
-                <p>Este mensaje se muestra desde el microcontrolador</p>
-                <p>Servidor funcionando correctamente ✓</p>
-            </div>
-            <div class='control-panel'>
-                <h2>Control del LED Strip RGB</h2>
-                <p id='status'>LED: APAGADO</p>
-                <div>
-                    <button class='led-button btn-red' onclick='controlLed("red")'>ROJO</button>
-                    <button class='led-button btn-green' onclick='controlLed("green")'>VERDE</button>
-                    <button class='led-button btn-blue' onclick='controlLed("blue")'>AZUL</button>
-                    <button class='led-button btn-yellow' onclick='controlLed("yellow")'>AMARILLO</button>
-                    <button class='led-button btn-off' onclick='controlLed("off")'>APAGAR</button>
-                </div>
-            </div>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Configuración IoT</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
+        .container { max-width: 400px; margin: 40px auto; background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 2px 8px #0001; }
+        h2 { text-align: center; }
+        label { display: block; margin-top: 16px; }
+        input[type="text"], input[type="password"], input[type="number"] { width: 100%; padding: 8px; margin-top: 4px; border-radius: 4px; border: 1px solid #ccc; }
+        button { margin-top: 20px; width: 100%; padding: 10px; background: #1976d2; color: #fff; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; }
+        button:hover { background: #1565c0; }
+        .controls { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 16px; }
+        .controls button { flex: 1 1 40%; min-width: 100px; }
+        .hidden { display: none; }
+        .song-list { margin-top: 16px; }
+        .song-list label { display: flex; align-items: center; margin-bottom: 6px; }
+        .logger-box { background: #222; color: #fff; padding: 10px; border-radius: 4px; font-size: 13px; margin-top: 10px; max-height: 200px; overflow-y: auto; }
+        .nav-btn { background: #eee; color: #1976d2; border: none; margin-top: 10px; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
+        .nav-btn:hover { background: #ddd; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div id="config-section">
+        <h2>Configuración WiFi y MQTT</h2>
+        <form id="config-form">
+            <label>SSID WiFi
+                <input type="text" id="ssid" required>
+            </label>
+            <label>Contraseña WiFi
+                <input type="password" id="password" required>
+            </label>
+            <label>Broker MQTT (URL/IP)
+                <input type="text" id="mqtt-url" required>
+            </label>
+            <label>Puerto MQTT
+                <input type="number" id="mqtt-port" min="1" max="65535" required>
+            </label>
+            <button type="submit">Guardar y continuar</button>
+        </form>
+    </div>
+
+    <div id="control-section" class="hidden">
+        <h2>Controles de Reproducción</h2>
+        <div class="controls">
+            <button onclick="sendControl('/prevSong')">Anterior</button>
+            <button onclick="sendControl('/nextSong')">Siguiente</button>
+            <button onclick="sendControl('/PlayPause')">Play/Pause</button>
+            <button onclick="sendControl('/stopSong')">Stop</button>
+            <button onclick="sendControl('/VolUp')">Vol +</button>
+            <button onclick="sendControl('/VolDown')">Vol -</button>
         </div>
-    </body>
-    </html>
+        <button class="nav-btn" onclick="showLogger()">Mostrar Logger</button>
+        <button class="nav-btn" onclick="showSongManager()">Gestionar Canciones</button>
+        <button class="nav-btn" onclick="backToConfig()">Volver a configuración</button>
+        <div id="logger-section" class="hidden">
+            <h3>Logger</h3>
+            <div id="logger-box" class="logger-box"></div>
+            <button class="nav-btn" onclick="hideLogger()">Cerrar Logger</button>
+        </div>
+        <div id="song-section" class="hidden">
+            <h3>Gestión de Canciones</h3>
+            <form id="song-form">
+                <div id="song-list" class="song-list"></div>
+                <button type="submit">Actualizar lista</button>
+            </form>
+            <button class="nav-btn" onclick="hideSongManager()">Cerrar gestión</button>
+        </div>
+    </div>
+</div>
+<script>
+// --- Navegación entre secciones ---
+function showControl() {
+    document.getElementById('config-section').classList.add('hidden');
+    document.getElementById('control-section').classList.remove('hidden');
+}
+function backToConfig() {
+    document.getElementById('control-section').classList.add('hidden');
+    document.getElementById('config-section').classList.remove('hidden');
+}
+
+// --- Manejo de formulario de configuración ---
+document.getElementById('config-form').onsubmit = async function(e) {
+    e.preventDefault();
+    const ssid = document.getElementById('ssid').value;
+    const password = document.getElementById('password').value;
+    const mqttUrl = document.getElementById('mqtt-url').value;
+    const mqttPort = document.getElementById('mqtt-port').value;
+    // Guardar WiFi
+    let wifiRes = await fetch('/setWifiConfig', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `ssid=${encodeURIComponent(ssid)}&password=${encodeURIComponent(password)}`
+    });
+    // Guardar MQTT
+    let mqttRes = await fetch('/mqttConfig', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `mqttUrl=${encodeURIComponent(mqttUrl)}&mqttPort=${encodeURIComponent(mqttPort)}`
+    });
+    if (wifiRes.ok && mqttRes.ok) {
+        showControl();
+    } else {
+        alert('Error guardando configuración.');
+    }
+};
+
+// --- Controles de reproducción ---
+function sendControl(endpoint) {
+    fetch(endpoint, { method: 'POST' });
+}
+
+// --- Logger ---
+function showLogger() {
+    document.getElementById('logger-section').classList.remove('hidden');
+    fetch('/getLogger')
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('logger-box').textContent = JSON.stringify(data, null, 2);
+        })
+        .catch(() => {
+            document.getElementById('logger-box').textContent = 'Error al obtener logger';
+        });
+}
+function hideLogger() {
+    document.getElementById('logger-section').classList.add('hidden');
+}
+
+// --- Gestión de canciones ---
+function showSongManager() {
+    document.getElementById('song-section').classList.remove('hidden');
+    fetch('/listSongs')
+        .then(r => r.json())
+        .then(data => {
+            const listDiv = document.getElementById('song-list');
+            listDiv.innerHTML = '';
+            if (Array.isArray(data)) {
+                data.forEach(song => {
+                    const label = document.createElement('label');
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.checked = song.selected;
+                    checkbox.value = song.name;
+                    label.appendChild(checkbox);
+                    label.appendChild(document.createTextNode(' ' + song.name + (song.size ? ` (${song.size} KB)` : '')));
+                    listDiv.appendChild(label);
+                });
+            } else {
+                listDiv.textContent = 'No hay canciones disponibles.';
+            }
+        });
+}
+function hideSongManager() {
+    document.getElementById('song-section').classList.add('hidden');
+}
+document.getElementById('song-form').onsubmit = async function(e) {
+    e.preventDefault();
+    const checkboxes = document.querySelectorAll('#song-list input[type=checkbox]');
+    for (const cb of checkboxes) {
+        if (cb.checked) {
+            await fetch('/addSong', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `song=${encodeURIComponent(cb.value)}`
+            });
+        } else {
+            await fetch('/removeSong', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `song=${encodeURIComponent(cb.value)}`
+            });
+        }
+    }
+    alert('Lista de canciones actualizada.');
+    hideSongManager();
+};
+</script>
+</body>
+</html>

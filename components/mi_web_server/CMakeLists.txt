@@ -8,5 +8,6 @@ idf_component_register(
                 mi_audio
                 spiff_handler
                 nvs_handler
+                cJSON
     EMBED_FILES "index.html"
 )
