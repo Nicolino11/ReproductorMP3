@@ -1,7 +1,7 @@
 {
-    "mqtt_url": "mqtt://192.168.1.22",
-    "sta_ssid": "Antelckcfe-2.4GHz",
-    "sta_password": "xxx",
+    "mqtt_url": "mqtt://10.4.96.120",
+    "sta_ssid": "caliope",
+    "sta_password": "sinlugar",
     "play_list" : [
         "butterfly.pcm",
         "dance.pcm",

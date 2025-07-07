@@ -28,6 +28,14 @@ static const char *TAG = "WEB_SERVER";
 
 static QueueHandle_t web_event_queue = NULL;
 
+// Configuración de las rutas
+static const httpd_uri_t index_uri = {
+    .uri       = "/",
+    .method    = HTTP_GET,
+    .handler   = index_handler,
+    .user_ctx  = NULL
+};
+
 const httpd_uri_t prevSong = {
     .uri = "/prevSong",
     .method = HTTP_POST,
@@ -82,6 +90,22 @@ const httpd_uri_t mqtt_config = {
     .handler = mqtt_config_post_handler,
     .user_ctx = NULL};
 
+
+// Manejador para la ruta "/"
+esp_err_t index_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "Solicitud recibida para URI: %s", req->uri);
+    
+    // Establecer el tipo de contenido
+    httpd_resp_set_type(req, "text/html");
+    
+    // Enviar la respuesta HTML
+    extern const char resp[] asm("_binary_index_html_start");
+    httpd_resp_send(req, resp, strlen(resp));
+    
+    return ESP_OK;
+}
+
 httpd_handle_t start_webserver(void)
 {
     httpd_handle_t server = NULL;
@@ -105,6 +129,7 @@ httpd_handle_t start_webserver(void)
         httpd_register_uri_handler(server, &wifi_credentials_handler);
 
         // Otros URI handlers
+        httpd_register_uri_handler(server, &index_uri);
         httpd_register_uri_handler(server, &prevSong);
         httpd_register_uri_handler(server, &nextSong);
         httpd_register_uri_handler(server, &VolUp);
@@ -115,7 +140,7 @@ httpd_handle_t start_webserver(void)
         // httpd_register_uri_handler(server, &delete_last_song_uri);
 
 #if CONFIG_EXAMPLE_BASIC_AUTH
-        httpd_register_basic_auth(server);
+                        httpd_register_basic_auth(server);
 #endif
         return server;
     }
