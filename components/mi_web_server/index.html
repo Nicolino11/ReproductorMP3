@@ -19,6 +19,8 @@
             justify-content: center;
             align-items: center;
             padding: 20px;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
         }
 
         .container {
@@ -28,6 +30,8 @@
             overflow: hidden;
             width: 100%;
             max-width: 600px;
+            position: relative;
+            z-index: 1;
         }
 
         .header {
@@ -83,8 +87,22 @@
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: background-color 0.2s ease;
             margin: 5px;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            outline: none;
+        }
+
+        .btn:active {
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn:focus {
+            outline: none;
         }
 
         .btn-primary {
@@ -96,6 +114,10 @@
             background: linear-gradient(135deg, #5a6fd8 0%, #6a4a8a 100%);
         }
 
+        .btn-primary:active {
+            background: linear-gradient(135deg, #4a5fc7 0%, #5a3a7a 100%);
+        }
+
         .btn-success {
             background: #28a745;
             color: white;
@@ -103,6 +125,10 @@
 
         .btn-success:hover {
             background: #218838;
+        }
+
+        .btn-success:active {
+            background: #1e7e34;
         }
 
         .btn-danger {
@@ -114,6 +140,10 @@
             background: #c82333;
         }
 
+        .btn-danger:active {
+            background: #bd2130;
+        }
+
         .btn-warning {
             background: #ffc107;
             color: #212529;
@@ -123,6 +153,10 @@
             background: #e0a800;
         }
 
+        .btn-warning:active {
+            background: #d39e00;
+        }
+
         .btn-info {
             background: #17a2b8;
             color: white;
@@ -130,6 +164,10 @@
 
         .btn-info:hover {
             background: #138496;
+        }
+
+        .btn-info:active {
+            background: #117a8b;
         }
 
         .message {
@@ -192,18 +230,33 @@
             font-size: 18px;
             color: #6c757d;
             padding: 5px;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            outline: none;
         }
 
         .password-toggle:hover {
             color: #495057;
         }
+
+        .password-toggle:active {
+            transform: translateY(-50%);
+        }
+
+        .password-toggle:focus {
+            outline: none;
+        }
+
+
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>ESP32 Web Server</h1>
-            <p>Control Panel - Nicolás Raposo, Martin Da Rosa y Rafael Durán</p>
+            <p>Panel de Control - Nicolás Raposo, Martin Da Rosa y Rafael Durán</p>
         </div>
         
         <div class="content">
@@ -234,9 +287,6 @@
                 <h2>📋 Gestión de Canciones</h2>
                 <div class="controls-grid">
                     <button class="btn btn-info" onclick="sendCommand('listSongs')">📋 Listar Canciones</button>
-                    <button class="btn btn-success" onclick="sendCommand('addSong')">➕ Agregar Canción</button>
-                    <button class="btn btn-danger" onclick="sendCommand('removeSong')">➖ Quitar Canción</button>
-                    <button class="btn btn-danger" onclick="sendCommand('deleteLastSong')">🗑️ Borrar Última</button>
                 </div>
             </div>
 
@@ -268,6 +318,8 @@
             </div>
         </div>
     </div>
+
+
 
     <script>
         function showMessage(message, isSuccess) {
@@ -408,13 +460,15 @@
             })
             .then(response => response.text())
             .then(data => {
-                showMessage('Configuración MQTT guardada exitosamente', true);
+                showMessage('URL MQTT guardada exitosamente', true);
             })
             .catch(error => {
                 console.error('Error:', error);
-                showMessage('Error al guardar configuración MQTT', false);
+                showMessage('Error al guardar URL MQTT', false);
             });
         }
+
+
     </script>
 </body>
 </html>

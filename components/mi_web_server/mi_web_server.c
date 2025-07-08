@@ -5,6 +5,8 @@
 #include "mi_wifi_ap.h"
 #include "mi_delay.h"
 #include "mi_audio.h"
+#include "mi_fs.h"
+#include "mi_config.h"
 #include <string.h>
 #include <stdlib.h>
 #include "spiff_handler.h"
@@ -345,24 +347,20 @@ esp_err_t list_files_handler(httpd_req_t *req)
 esp_err_t mqtt_config_post_handler(httpd_req_t *req)
 {
     char buf[1024];
-    int ret = httpd_req_recv(req, buf, sizeof(buf)); // Recibir datos de la solicitud HTTP
+    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
     if (ret <= 0)
     {
         if (ret == HTTPD_SOCK_ERR_TIMEOUT)
         {
-            httpd_resp_send_408(req); // Enviar respuesta 408 si hay timeout
+            httpd_resp_send_408(req);
         }
         return ESP_FAIL;
     }
 
-    buf[ret] = '\0'; // Asegurar que el buffer esté terminado con null byte
+    buf[ret] = '\0';
     ESP_LOGI(TAG, "Received MQTT config data: %s", buf);
 
-    char mqtt_url_encoded[128];
-    char mqtt_url[128];
-    char mqtt_port_str[6]; // Para almacenar el puerto como cadena
-
-    // Encontrar mqttUrl en los datos recibidos
+    // Buscar mqttUrl en los datos recibidos
     char *mqtt_url_start = strstr(buf, "mqttUrl=");
     if (!mqtt_url_start)
     {
@@ -371,54 +369,35 @@ esp_err_t mqtt_config_post_handler(httpd_req_t *req)
     }
     mqtt_url_start += strlen("mqttUrl=");
 
+    // Extraer la URL completa hasta el final o hasta el siguiente &
     char *mqtt_url_end = strchr(mqtt_url_start, '&');
     if (!mqtt_url_end)
     {
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid request: missing separator or 'mqttPort'");
-        return ESP_FAIL;
+        mqtt_url_end = mqtt_url_start + strlen(mqtt_url_start);
     }
-    strncpy(mqtt_url_encoded, mqtt_url_start, mqtt_url_end - mqtt_url_start);
-    mqtt_url_encoded[mqtt_url_end - mqtt_url_start] = '\0';
 
-    // Decodificar el URL de MQTT
-    url_decode(mqtt_url, mqtt_url_encoded);
-
-    // Encontrar mqttPort en los datos recibidos
-    char *mqtt_port_start = strstr(mqtt_url_end, "mqttPort=");
-    if (!mqtt_port_start)
+    char mqtt_url[128] = {0};
+    int url_len = mqtt_url_end - mqtt_url_start;
+    if (url_len >= sizeof(mqtt_url))
     {
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid request: missing 'mqttPort'");
-        return ESP_FAIL;
-    }
-    mqtt_port_start += strlen("mqttPort=");
-
-    char *mqtt_port_end = strchr(mqtt_port_start, '&');
-    if (!mqtt_port_end)
-    {
-        mqtt_port_end = mqtt_port_start + strlen(mqtt_port_start);
-    }
-    strncpy(mqtt_port_str, mqtt_port_start, mqtt_port_end - mqtt_port_start);
-    mqtt_port_str[mqtt_port_end - mqtt_port_start] = '\0';
-
-    long mqtt_port = strtol(mqtt_port_str, NULL, 10);
-    if (mqtt_port <= 0 || mqtt_port > 65535)
-    {
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid request: 'mqttPort' is not a valid port number");
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid request: mqttUrl too long");
         return ESP_FAIL;
     }
 
-    ESP_LOGI(TAG, "MQTT URL: %s, MQTT Port: %ld", mqtt_url, mqtt_port);
+    strncpy(mqtt_url, mqtt_url_start, url_len);
+    mqtt_url[url_len] = '\0';
 
-    // Guardar configuración MQTT en NVS
-    // esp_err_t err = nvs_handler_set_mqtt_config(mqtt_url, mqtt_port);
-    // if (err != ESP_OK)
-    // {
-    //     httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to save MQTT config");
-    //     return ESP_FAIL;
-    // }
+    // URL decode si es necesario
+    char decoded_url[128];
+    url_decode(decoded_url, mqtt_url);
 
-    // Enviar una respuesta de éxito al cliente
-    httpd_resp_sendstr(req, "MQTT config received successfully");
+    ESP_LOGI(TAG, "Setting MQTT URL: %s", decoded_url);
+
+    // Usar mi_config para guardar la URL
+    mi_config_set_mqtt_url(decoded_url);
+
+    // Enviar respuesta de éxito
+    httpd_resp_sendstr(req, "MQTT URL saved successfully");
 
     return ESP_OK;
 }
@@ -436,12 +415,12 @@ esp_err_t list_songs_handler(httpd_req_t *req)
 {
     // Respuesta JSON básica con canciones disponibles
     const char *json_response = "{\"available_songs\":["
-        "{\"name\":\"doom\",\"size_kb\":62},"
-        "{\"name\":\"dance\",\"size_kb\":93},"
-        "{\"name\":\"mission\",\"size_kb\":95},"
-        "{\"name\":\"tetris\",\"size_kb\":97},"
-        "{\"name\":\"pacman\",\"size_kb\":66},"
-        "{\"name\":\"undertale\",\"size_kb\":71}"
+        "{\"name\":\"doom\""
+        "{\"name\":\"dance\""
+        "{\"name\":\"mission\""
+        "{\"name\":\"tetris\""
+        "{\"name\":\"pacman\""
+        "{\"name\":\"undertale\""
         "],\"playlist\":[],\"total_size_kb\":0,\"max_size_kb\":600}";
     
     httpd_resp_set_type(req, "application/json");
@@ -516,6 +495,8 @@ esp_err_t remove_song_handler(httpd_req_t *req)
     httpd_resp_sendstr(req, "Song removed");
     return ESP_OK;
 }
+
+
 
 void mi_web_server_init(void) {
 }
