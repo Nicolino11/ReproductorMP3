@@ -253,7 +253,66 @@
             outline: none;
         }
 
-
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal.show {
+            display: flex;
+        }
+        .modal-content {
+            background-color: #fff;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            position: relative;
+            text-align: left;
+            padding: 30px 20px 20px 20px;
+            animation: modalFadeIn 0.2s;
+        }
+        @keyframes modalFadeIn {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .modal-content h2 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 20px;
+            color: #667eea;
+        }
+        .close {
+            color: #aaa;
+            position: absolute;
+            top: 12px;
+            right: 18px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.2s;
+            background: none;
+            border: none;
+            line-height: 1;
+        }
+        .close:hover, .close:focus {
+            color: #667eea;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        #songsList {
+            font-size: 16px;
+            color: #333;
+            margin-top: 10px;
+            white-space: pre-wrap;
+        }
     </style>
 </head>
 <body>
@@ -323,6 +382,14 @@
         </div>
     </div>
 
+    <!-- Modal para mostrar el listado de canciones -->
+    <div id="songsModal" class="modal">
+        <div class="modal-content">
+            <button class="close" id="closeModalBtn" aria-label="Cerrar">&times;</button>
+            <h2>Lista de Canciones</h2>
+            <pre id="songsList"></pre>
+        </div>
+    </div>
 
 
     <script>
@@ -398,14 +465,13 @@
                 if (command === 'listSongs') {
                     try {
                         const jsonData = JSON.parse(data);
-                        let message = 'Canciones disponibles:\n';
+                        let message = '';
                         jsonData.available_songs.forEach(song => {
-                            message += `• ${song.name} (${song.size_kb} KB)\n`;
+                            message += `• ${song.name}\n`;
                         });
-                        message += `\nTamaño total: ${jsonData.total_size_kb} KB / ${jsonData.max_size_kb} KB`;
-                        alert(message);
+                        showSongsModal(message);
                     } catch (e) {
-                        showMessage('Respuesta: ' + data, true);
+                        showSongsModal('Respuesta: ' + data);
                     }
                 } else {
                     showMessage('Comando ejecutado: ' + command, true);
@@ -416,6 +482,27 @@
                 showMessage('Error al ejecutar comando: ' + command, false);
             });
         }
+
+        // Función para mostrar el modal con la lista de canciones
+        function showSongsModal(message) {
+            const modal = document.getElementById('songsModal');
+            const songsList = document.getElementById('songsList');
+            songsList.textContent = message;
+            modal.classList.add('show');
+        }
+        // Cerrar el modal al hacer click en la cruz
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('closeModalBtn').onclick = function() {
+                document.getElementById('songsModal').classList.remove('show');
+            };
+            // Cerrar el modal si se hace click fuera del contenido
+            window.onclick = function(event) {
+                const modal = document.getElementById('songsModal');
+                if (event.target === modal) {
+                    modal.classList.remove('show');
+                }
+            };
+        });
 
         function saveWifiConfig() {
             const ssid = document.getElementById('wifi-ssid').value;
