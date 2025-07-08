@@ -26,10 +26,10 @@ esp_err_t get_wifi_credentials_handler(httpd_req_t *req);
 esp_err_t list_songs_handler(httpd_req_t *req);
 esp_err_t add_song_handler(httpd_req_t *req);
 esp_err_t remove_song_handler(httpd_req_t *req);
+esp_err_t set_sta_config_handler(httpd_req_t *req);
 
 extern const uint8_t index_html_start[] asm("_binary_index_html_start");
 static const char *TAG = "WEB_SERVER";
-// static int cont = 0;
 
 static QueueHandle_t web_event_queue = NULL;
 
@@ -113,6 +113,13 @@ httpd_uri_t add_song_uri = {
     .handler = add_song_handler,
     .user_ctx = NULL};
 
+// Setear los parámetros de WiFi STA
+httpd_uri_t set_sta_config_uri = {
+    .uri = "/setStaConfig",
+    .method = HTTP_POST,
+    .handler = set_sta_config_handler,
+    .user_ctx = NULL};
+
 // Manejador para la ruta "/"
 esp_err_t index_handler(httpd_req_t *req)
 {
@@ -164,6 +171,7 @@ httpd_handle_t start_webserver(void)
         httpd_register_uri_handler(server, &remove_song_uri);
         httpd_register_uri_handler(server, &list_songs_uri);
         httpd_register_uri_handler(server, &add_song_uri);
+        httpd_register_uri_handler(server, &set_sta_config_uri);
 
 #if CONFIG_EXAMPLE_BASIC_AUTH
                         httpd_register_basic_auth(server);
@@ -292,37 +300,29 @@ esp_err_t delete_last_song_handler(httpd_req_t *req)
     return result;
 }
 
-/* Función de callback para manejar la solicitud HTTP GET /getMQTTCredentials */
+// Función de callback pa1ra manejar la solicitud HTTP GET /getMQTTCredentials
 esp_err_t get_mqtt_config_handler(httpd_req_t *req)
 {
-    char url_encoded_mqtt_url[128];
-    uint16_t mqtt_port;
-
-    // Obtener los datos de la configuración MQTT desde el NVS
-    esp_err_t err = nvs_handler_get_mqtt_config(url_encoded_mqtt_url, sizeof(url_encoded_mqtt_url), &mqtt_port);
-    if (err != ESP_OK)
-    {
-        ESP_LOGE(TAG, "Failed to retrieve MQTT config from NVS");
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Error retrieving MQTT config");
+    char mqtt_url_param[128] = {0};
+    // Obtener el parámetro 'mqtt_url' de la query string si existe
+    esp_err_t param_err = httpd_req_get_url_query_str(req, mqtt_url_param, sizeof(mqtt_url_param));
+    if (param_err == ESP_OK && strlen(mqtt_url_param) > 0) {
+        // Buscar el valor del parámetro mqtt_url
+        char value[128] = {0};
+        if (httpd_query_key_value(mqtt_url_param, "mqtt_url", value, sizeof(value)) == ESP_OK) {
+            // Aquí podrías hacer algo con el parámetro recibido si lo necesitas
+            // Pero según la consigna, solo se debe devolver la URL almacenada
+        }
+    }
+    // Obtener la URL almacenada
+    const char* stored_url = mi_config_get_mqtt_url();
+    if (!stored_url) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "No MQTT URL configured");
         return ESP_FAIL;
     }
-
-    // Decodificar el URL de MQTT
-    char mqtt_url[128];
-    url_decode(mqtt_url, url_encoded_mqtt_url);
-
-    ESP_LOGI(TAG, "Received MQTT config data: mqttUrl=%s&mqttPort=%d", url_encoded_mqtt_url, mqtt_port);
-    ESP_LOGI(TAG, "MQTT URL: %s, MQTT Port: %d", mqtt_url, mqtt_port);
-
-    // Construir la respuesta con la configuración MQTT
     char response_buffer[256];
-    snprintf(response_buffer, sizeof(response_buffer),
-             "MQTT configuration: URL: %s, Port: %d",
-             mqtt_url, mqtt_port);
-
-    // Enviar la respuesta HTML
+    snprintf(response_buffer, sizeof(response_buffer), "MQTT configuration: URL: %s", stored_url);
     httpd_resp_send(req, response_buffer, HTTPD_RESP_USE_STRLEN);
-
     return ESP_OK;
 }
 
@@ -393,12 +393,57 @@ esp_err_t mqtt_config_post_handler(httpd_req_t *req)
 
     ESP_LOGI(TAG, "Setting MQTT URL: %s", decoded_url);
 
-    // Usar mi_config para guardar la URL
+    // Guardar la URL usando mi_config
     mi_config_set_mqtt_url(decoded_url);
 
     // Enviar respuesta de éxito
     httpd_resp_sendstr(req, "MQTT URL saved successfully");
 
+    return ESP_OK;
+}
+
+// Setear los parámetros de WiFi STA
+esp_err_t set_sta_config_handler(httpd_req_t *req)
+{
+    char buf[256];
+    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (ret <= 0)
+    {
+        if (ret == HTTPD_SOCK_ERR_TIMEOUT)
+        {
+            httpd_resp_send_408(req);
+        }
+        return ESP_FAIL;
+    }
+    buf[ret] = '\0';
+
+    // Extraer los parámetros ssid y password
+    char ssid[64] = {0};
+    char password[64] = {0};
+    char *ssid_start = strstr(buf, "ssid=");
+    char *password_start = strstr(buf, "password=");
+    if (!ssid_start || !password_start)
+    {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing ssid or password param");
+        return ESP_FAIL;
+    }
+    ssid_start += strlen("ssid=");
+    char *ssid_end = strchr(ssid_start, '&');
+    int ssid_len = ssid_end ? (ssid_end - ssid_start) : strlen(ssid_start);
+    if (ssid_len >= sizeof(ssid)) ssid_len = sizeof(ssid) - 1;
+    strncpy(ssid, ssid_start, ssid_len);
+    ssid[ssid_len] = '\0';
+
+    password_start += strlen("password=");
+    char *password_end = strchr(password_start, '&');
+    int password_len = password_end ? (password_end - password_start) : strlen(password_start);
+    if (password_len >= sizeof(password)) password_len = sizeof(password) - 1;
+    strncpy(password, password_start, password_len);
+    password[password_len] = '\0';
+
+    // Guardar la configuración usando mi_config
+    mi_config_set_sta(ssid, password);
+    httpd_resp_sendstr(req, "WiFi STA config saved successfully");
     return ESP_OK;
 }
 

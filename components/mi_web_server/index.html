@@ -176,7 +176,11 @@
             border-radius: 8px;
             font-weight: 600;
             text-align: center;
-            display: none;
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            visibility: hidden;
         }
 
         .message.success {
@@ -326,9 +330,9 @@
             const messageDiv = document.getElementById('message');
             messageDiv.innerHTML = message;
             messageDiv.className = 'message ' + (isSuccess ? 'success' : 'error');
-            messageDiv.style.display = 'block';
+            messageDiv.style.visibility = 'visible';
             setTimeout(() => {
-                messageDiv.style.display = 'none';
+                messageDiv.style.visibility = 'hidden';
             }, 3000);
         }
 
@@ -424,7 +428,7 @@
 
             const formData = `ssid=${encodeURIComponent(ssid)}&password=${encodeURIComponent(password)}`;
             
-            fetch('/setWifiConfig', {
+            fetch('/setStaConfig', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',

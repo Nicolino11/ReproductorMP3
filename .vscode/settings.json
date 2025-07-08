@@ -2,7 +2,7 @@
   "idf.pythonInstallPath": "C:\\Espressif\\tools\\idf-python\\3.11.2\\python.exe",
   "idf.espIdfPathWin": "C:/Espressif/frameworks/esp-idf-v5.4.1/",
   "idf.toolsPathWin": "C:\\Espressif",
-  "idf.portWin": "COM6",
+  "idf.portWin": "COM4",
   "idf.flashType": "UART",
   "idf.openOcdConfigs": [
     "board/esp32s2-kaluga-1.cfg"
