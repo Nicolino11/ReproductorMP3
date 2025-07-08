@@ -5,7 +5,7 @@
 #include "mqtt_client.h"
 #include "mi_config.h"
 
-#define CONFIG_BROKER_URL "mqtt://192.168.1.22"
+#define CONFIG_BROKER_URL "mqtt://192.168.4.2"
 #define TOPIC_NAME "/player/control"
 #define TOPIC_LOGGER "/player/logger"
 
@@ -128,11 +128,11 @@ static void on_mqtt_url_changed(char *new_url) {
     mi_mqtt_send_all_logger_events();
 }
 
-static void mqtt_app_start(void)
+static void mqtt_app_start(char* broker_url)
 {
-    const char *url = mi_config_get_mqtt_url();
+    ESP_LOGI("MQTT", "MQTT URL: %s", broker_url);
     esp_mqtt_client_config_t mqtt_cfg = {
-        .broker.address.uri = url
+        .broker.address.uri = broker_url
     };
     client = esp_mqtt_client_init(&mqtt_cfg);
     esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
@@ -140,10 +140,10 @@ static void mqtt_app_start(void)
     mi_mqtt_send_all_logger_events();
 }
 
-void mi_mqtt_init_with_queue(QueueHandle_t queue, Logger logger) {
+void mi_mqtt_init_with_queue(QueueHandle_t queue, Logger logger, char* broker_url) {
     vTaskDelay(pdMS_TO_TICKS(60));
     player_event_queue = queue;
     event_logger = logger;
     mi_config_on_mqtt_url_changed(on_mqtt_url_changed);
-    mqtt_app_start();
+    mqtt_app_start(broker_url);
 }

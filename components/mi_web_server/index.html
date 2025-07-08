@@ -1,68 +1,420 @@
 <!DOCTYPE html>
-    <html>
-    <head>
-        <title>ESP32 Web Server</title>
-        <meta charset='UTF-8'>
-        <style>
-            body { font-family: Arial, sans-serif; margin: 40px; }
-            h1 { color: #2E86AB; }
-            .container { max-width: 600px; margin: 0 auto; }
-            .info { background-color: #f0f8ff; padding: 20px; border-radius: 5px; margin-bottom: 20px; }
-            .control-panel { background-color: #f9f9f9; padding: 20px; border-radius: 5px; text-align: center; }
-            .led-button {
-                padding: 15px 30px;
-                margin: 10px;
-                border: none;
-                border-radius: 5px;
-                font-size: 16px;
-                font-weight: bold;
-                cursor: pointer;
-                color: white;
-                text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
-                transition: transform 0.1s;
-            }
-            .led-button:hover { transform: scale(1.05); }
-            .led-button:active { transform: scale(0.95); }
-            .btn-red { background-color: #dc3545; }
-            .btn-green { background-color: #28a745; }
-            .btn-blue { background-color: #007bff; }
-            .btn-yellow { background-color: #ffc107; color: black; }
-            .btn-off { background-color: #6c757d; }
-        </style>
-        <script>
-            function controlLed(color) {
-                fetch('/led?color=' + color)
-                .then(response => response.text())
-                .then(data => {
-                    console.log('LED cambiado a: ' + color);
-                    document.getElementById('status').innerHTML = 'LED: ' + color.toUpperCase();
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    document.getElementById('status').innerHTML = 'Error al cambiar LED';
-                });
-            }
-        </script>
-    </head>
-    <body>
-        <div class='container'>
-            <h1>¡Hola Mundo!</h1>
-            <div class='info'>
-                <p>Bienvenido al servidor web del ESP32 del grupo de:<br><b>Nicolás Raposo, Martin Da Rosa y Rafael Durán</b></p>
-                <p>Este mensaje se muestra desde el microcontrolador</p>
-                <p>Servidor funcionando correctamente ✓</p>
-            </div>
-            <div class='control-panel'>
-                <h2>Control del LED Strip RGB</h2>
-                <p id='status'>LED: APAGADO</p>
-                <div>
-                    <button class='led-button btn-red' onclick='controlLed("red")'>ROJO</button>
-                    <button class='led-button btn-green' onclick='controlLed("green")'>VERDE</button>
-                    <button class='led-button btn-blue' onclick='controlLed("blue")'>AZUL</button>
-                    <button class='led-button btn-yellow' onclick='controlLed("yellow")'>AMARILLO</button>
-                    <button class='led-button btn-off' onclick='controlLed("off")'>APAGAR</button>
+<html>
+<head>
+    <title>ESP32 Web Server</title>
+    <meta charset='UTF-8'>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4a8a 100%);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #138496;
+        }
+
+        .message {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            font-weight: 600;
+            text-align: center;
+            display: none;
+        }
+
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .config-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .password-container {
+            position: relative;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            color: #6c757d;
+            padding: 5px;
+        }
+
+        .password-toggle:hover {
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>ESP32 Web Server</h1>
+            <p>Control Panel - Nicolás Raposo, Martin Da Rosa y Rafael Durán</p>
+        </div>
+        
+        <div class="content">
+            <div id="message" class="message"></div>
+
+            <!-- Controles de Audio -->
+            <div class="section">
+                <h2>🎵 Controles de Audio</h2>
+                <div class="controls-grid">
+                    <button class="btn btn-primary" onclick="sendCommand('prevSong')">⏮️ Anterior</button>
+                    <button class="btn btn-primary" onclick="sendCommand('nextSong')">⏭️ Siguiente</button>
+                    <button class="btn btn-success" onclick="sendCommand('PlayPause')">▶️ Play/Pause</button>
+                    <button class="btn btn-danger" onclick="sendCommand('stopSong')">⏹️ Detener</button>
                 </div>
             </div>
+
+            <!-- Controles de Volumen -->
+            <div class="section">
+                <h2>🔊 Controles de Volumen</h2>
+                <div class="controls-grid">
+                    <button class="btn btn-warning" onclick="sendCommand('VolUp')">🔊 Volumen +</button>
+                    <button class="btn btn-warning" onclick="sendCommand('VolDown')">🔉 Volumen -</button>
+                </div>
+            </div>
+
+            <!-- Gestión de Canciones -->
+            <div class="section">
+                <h2>📋 Gestión de Canciones</h2>
+                <div class="controls-grid">
+                    <button class="btn btn-info" onclick="sendCommand('listSongs')">📋 Listar Canciones</button>
+                    <button class="btn btn-success" onclick="sendCommand('addSong')">➕ Agregar Canción</button>
+                    <button class="btn btn-danger" onclick="sendCommand('removeSong')">➖ Quitar Canción</button>
+                    <button class="btn btn-danger" onclick="sendCommand('deleteLastSong')">🗑️ Borrar Última</button>
+                </div>
+            </div>
+
+            <!-- Configuración WiFi -->
+            <div class="config-section">
+                <h2>📶 Configuración WiFi</h2>
+                <div class="form-group">
+                    <label for="wifi-ssid">SSID (Nombre de la red):</label>
+                    <input type="text" id="wifi-ssid" placeholder="Ej: MiRedWiFi">
+                </div>
+                <div class="form-group">
+                    <label for="wifi-password">Contraseña:</label>
+                    <div class="password-container">
+                        <input type="password" id="wifi-password" placeholder="Contraseña de la red WiFi">
+                        <button type="button" class="password-toggle" onclick="toggleWifiPassword()">👁️</button>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="saveWifiConfig()">Guardar Configuración WiFi</button>
+            </div>
+
+            <!-- Configuración MQTT -->
+            <div class="config-section">
+                <h2>📡 Configuración MQTT</h2>
+                <div class="form-group">
+                    <label for="mqtt-url">URL del Broker:</label>
+                    <input type="text" id="mqtt-url" placeholder="mqtt://192.168.1.100:1883">
+                </div>
+                <button class="btn btn-primary" onclick="saveMqttConfig()">Guardar Configuración MQTT</button>
+            </div>
         </div>
-    </body>
-    </html>
+    </div>
+
+    <script>
+        function showMessage(message, isSuccess) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerHTML = message;
+            messageDiv.className = 'message ' + (isSuccess ? 'success' : 'error');
+            messageDiv.style.display = 'block';
+            setTimeout(() => {
+                messageDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        // Función para mostrar/ocultar contraseña WiFi
+        function toggleWifiPassword() {
+            const passwordInput = document.getElementById('wifi-password');
+            const toggleButton = document.querySelector('#wifi-password').nextElementSibling;
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleButton.innerHTML = '🙈';
+            } else {
+                passwordInput.type = 'password';
+                toggleButton.innerHTML = '👁️';
+            }
+        }
+        function togglePassword() {
+            const passwordInput = document.getElementById('mqtt-password');
+            const toggleButton = document.querySelector('.password-toggle');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleButton.innerHTML = '🙈';
+            } else {
+                passwordInput.type = 'password';
+                toggleButton.innerHTML = '👁️';
+            }
+        }
+
+        function sendCommand(command) {
+            let url = '/' + command;
+            let method = 'POST';
+            let body = null;
+            
+            // Para comandos que necesitan parámetros
+            if (command === 'addSong') {
+                const songName = prompt('Ingresa el nombre de la canción:');
+                if (!songName) return;
+                body = `song=${encodeURIComponent(songName)}`;
+            } else if (command === 'removeSong') {
+                const songName = prompt('Ingresa el nombre de la canción a quitar:');
+                if (!songName) return;
+                body = `song=${encodeURIComponent(songName)}`;
+            } else if (command === 'listSongs') {
+                method = 'GET';
+                url = '/listSongs';
+            }
+
+            const options = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                }
+            };
+
+            if (body) {
+                options.body = body;
+            }
+
+            fetch(url, options)
+            .then(response => response.text())
+            .then(data => {
+                if (command === 'listSongs') {
+                    try {
+                        const jsonData = JSON.parse(data);
+                        let message = 'Canciones disponibles:\n';
+                        jsonData.available_songs.forEach(song => {
+                            message += `• ${song.name} (${song.size_kb} KB)\n`;
+                        });
+                        message += `\nTamaño total: ${jsonData.total_size_kb} KB / ${jsonData.max_size_kb} KB`;
+                        alert(message);
+                    } catch (e) {
+                        showMessage('Respuesta: ' + data, true);
+                    }
+                } else {
+                    showMessage('Comando ejecutado: ' + command, true);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessage('Error al ejecutar comando: ' + command, false);
+            });
+        }
+
+        function saveWifiConfig() {
+            const ssid = document.getElementById('wifi-ssid').value;
+            const password = document.getElementById('wifi-password').value;
+            
+            if (!ssid || !password) {
+                showMessage('Por favor completa todos los campos', false);
+                return;
+            }
+
+            const formData = `ssid=${encodeURIComponent(ssid)}&password=${encodeURIComponent(password)}`;
+            
+            fetch('/setWifiConfig', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: formData
+            })
+            .then(response => response.text())
+            .then(data => {
+                showMessage('Configuración WiFi guardada exitosamente', true);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessage('Error al guardar configuración WiFi', false);
+            });
+        }
+
+        function saveMqttConfig() {
+            const mqttUrl = document.getElementById('mqtt-url').value;
+            
+            if (!mqttUrl) {
+                showMessage('Por favor ingresa la URL del broker MQTT', false);
+                return;
+            }
+
+            const formData = `mqttUrl=${encodeURIComponent(mqttUrl)}`;
+            
+            fetch('/mqttConfig', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: formData
+            })
+            .then(response => response.text())
+            .then(data => {
+                showMessage('Configuración MQTT guardada exitosamente', true);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessage('Error al guardar configuración MQTT', false);
+            });
+        }
+    </script>
+</body>
+</html>

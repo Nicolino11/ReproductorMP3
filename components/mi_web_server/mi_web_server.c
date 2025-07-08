@@ -21,12 +21,23 @@ esp_err_t delete_last_song_handler(httpd_req_t *req);
 esp_err_t get_mqtt_config_handler(httpd_req_t *req);
 esp_err_t mqtt_config_post_handler(httpd_req_t *req);
 esp_err_t get_wifi_credentials_handler(httpd_req_t *req);
+esp_err_t list_songs_handler(httpd_req_t *req);
+esp_err_t add_song_handler(httpd_req_t *req);
+esp_err_t remove_song_handler(httpd_req_t *req);
 
 extern const uint8_t index_html_start[] asm("_binary_index_html_start");
 static const char *TAG = "WEB_SERVER";
 // static int cont = 0;
 
 static QueueHandle_t web_event_queue = NULL;
+
+// Configuración de las rutas
+static const httpd_uri_t index_uri = {
+    .uri       = "/",
+    .method    = HTTP_GET,
+    .handler   = index_handler,
+    .user_ctx  = NULL
+};
 
 const httpd_uri_t prevSong = {
     .uri = "/prevSong",
@@ -82,6 +93,39 @@ const httpd_uri_t mqtt_config = {
     .handler = mqtt_config_post_handler,
     .user_ctx = NULL};
 
+httpd_uri_t remove_song_uri = {
+    .uri = "/removeSong",
+    .method = HTTP_POST,
+    .handler = remove_song_handler,
+    .user_ctx = NULL};
+
+httpd_uri_t list_songs_uri = {
+    .uri = "/listSongs",
+    .method = HTTP_GET,
+    .handler = list_songs_handler,
+    .user_ctx = NULL};
+
+httpd_uri_t add_song_uri = {
+    .uri = "/addSong",
+    .method = HTTP_POST,
+    .handler = add_song_handler,
+    .user_ctx = NULL};
+
+// Manejador para la ruta "/"
+esp_err_t index_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "Solicitud recibida para URI: %s", req->uri);
+    
+    // Establecer el tipo de contenido
+    httpd_resp_set_type(req, "text/html");
+    
+    // Enviar la respuesta HTML
+    extern const char resp[] asm("_binary_index_html_start");
+    httpd_resp_send(req, resp, strlen(resp));
+    
+    return ESP_OK;
+}
+
 httpd_handle_t start_webserver(void)
 {
     httpd_handle_t server = NULL;
@@ -105,17 +149,22 @@ httpd_handle_t start_webserver(void)
         httpd_register_uri_handler(server, &wifi_credentials_handler);
 
         // Otros URI handlers
+        httpd_register_uri_handler(server, &index_uri);
         httpd_register_uri_handler(server, &prevSong);
         httpd_register_uri_handler(server, &nextSong);
         httpd_register_uri_handler(server, &VolUp);
         httpd_register_uri_handler(server, &volDown);
         httpd_register_uri_handler(server, &PlayPause);
         httpd_register_uri_handler(server, &stopSong);
-
-        // httpd_register_uri_handler(server, &delete_last_song_uri);
+        httpd_register_uri_handler(server, &delete_last_song_uri);
+        httpd_register_uri_handler(server, &get_mqtt_handler);
+        httpd_register_uri_handler(server, &mqtt_config);
+        httpd_register_uri_handler(server, &remove_song_uri);
+        httpd_register_uri_handler(server, &list_songs_uri);
+        httpd_register_uri_handler(server, &add_song_uri);
 
 #if CONFIG_EXAMPLE_BASIC_AUTH
-        httpd_register_basic_auth(server);
+                        httpd_register_basic_auth(server);
 #endif
         return server;
     }
@@ -381,3 +430,92 @@ void mi_web_server_init_with_queue(QueueHandle_t queue)
 }
 
 esp_err_t get_wifi_credentials_handler(httpd_req_t *req) { return ESP_OK; }
+
+// Listar canciones disponibles (devuelve JSON)
+esp_err_t list_songs_handler(httpd_req_t *req)
+{
+    // Respuesta JSON básica con canciones disponibles
+    const char *json_response = "{\"available_songs\":["
+        "{\"name\":\"doom\",\"size_kb\":62},"
+        "{\"name\":\"dance\",\"size_kb\":93},"
+        "{\"name\":\"mission\",\"size_kb\":95},"
+        "{\"name\":\"tetris\",\"size_kb\":97},"
+        "{\"name\":\"pacman\",\"size_kb\":66},"
+        "{\"name\":\"undertale\",\"size_kb\":71}"
+        "],\"playlist\":[],\"total_size_kb\":0,\"max_size_kb\":600}";
+    
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, json_response, strlen(json_response));
+    return ESP_OK;
+}
+
+// Agregar una canción a la lista de reproducción
+esp_err_t add_song_handler(httpd_req_t *req)
+{
+    char buf[128];
+    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (ret <= 0)
+    {
+        if (ret == HTTPD_SOCK_ERR_TIMEOUT)
+        {
+            httpd_resp_send_408(req);
+        }
+        return ESP_FAIL;
+    }
+    buf[ret] = '\0';
+    
+    // Espera formato: song=nombre
+    char *song_start = strstr(buf, "song=");
+    if (!song_start)
+    {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing song param");
+        return ESP_FAIL;
+    }
+    song_start += strlen("song=");
+    char song_name[64] = {0};
+    strncpy(song_name, song_start, sizeof(song_name) - 1);
+    song_name[sizeof(song_name) - 1] = '\0';
+    
+    ESP_LOGI(TAG, "Adding song: %s", song_name);
+    
+    // Por ahora, solo devolvemos éxito
+    httpd_resp_sendstr(req, "Song added");
+    return ESP_OK;
+}
+
+// Quitar una canción de la lista de reproducción
+esp_err_t remove_song_handler(httpd_req_t *req)
+{
+    char buf[128];
+    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (ret <= 0)
+    {
+        if (ret == HTTPD_SOCK_ERR_TIMEOUT)
+        {
+            httpd_resp_send_408(req);
+        }
+        return ESP_FAIL;
+    }
+    buf[ret] = '\0';
+    
+    // Espera formato: song=nombre
+    char *song_start = strstr(buf, "song=");
+    if (!song_start)
+    {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing song param");
+        return ESP_FAIL;
+    }
+    song_start += strlen("song=");
+    char song_name[64] = {0};
+    strncpy(song_name, song_start, sizeof(song_name) - 1);
+    song_name[sizeof(song_name) - 1] = '\0';
+    
+    ESP_LOGI(TAG, "Removing song: %s", song_name);
+    
+    // Por ahora, solo devolvemos éxito
+    httpd_resp_sendstr(req, "Song removed");
+    return ESP_OK;
+}
+
+void mi_web_server_init(void) {
+}

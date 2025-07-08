@@ -27,12 +27,12 @@ void main_task(void *pvParameters) {
     Config *config = mi_config_get();
     QueueHandle_t queue = mi_queue_init(10);
 
-    init_connect_wifi_ap(config->sta_ssid, config->sta_password);
+    init_wifi_apsta("Placa_WIFI", "Password123", config->sta_ssid, config->sta_password);
     mi_ntp_time_init(); // Sincroniza la hora con NTP
     
     mi_audio_init_with_queue(queue, logger); // Pasa referencia si es posible
     mi_touch_init_with_queue(queue);
-    mi_mqtt_init_with_queue(queue, logger);
+    mi_mqtt_init_with_queue(queue, logger, config->mqtt_url);
     mi_web_server_init_with_queue(queue);
 
     vTaskDelete(NULL); // Termina la tarea si no es cíclica

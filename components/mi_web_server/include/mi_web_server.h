@@ -30,6 +30,8 @@ esp_err_t play_pause_handler(httpd_req_t *req);
 esp_err_t delete_last_song_handler(httpd_req_t *req);
 esp_err_t get_mqtt_config_handler(httpd_req_t *req);
 esp_err_t mqtt_config_post_handler(httpd_req_t *req);
+esp_err_t index_handler(httpd_req_t *req);
+
 
 esp_err_t get_wifi_credentials_handler(httpd_req_t *req);
 
