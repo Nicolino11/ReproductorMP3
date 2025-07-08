@@ -1,5 +1,19 @@
 ## Laboratorio Final 
 
+**Integrantes:** Nicolas Raposo, Martin Da Rosa y Rafael Durán.
+
+## Uso de Touchpad
+
+Para usar el touchpad simplemente es necesario conectarlo, los botones hacen lo siguiente:
+
+VOL_UP -> Sube volumen<br />
+VOL_DOWN -> Baja volumen<br />
+PHOTO -> Canción anterior<br />
+PLAY/PAUSE -> Pausa/Resumir<br />
+RECORD -> Canción siguiente<br />
+
+El botón NETWORK no hace nada<br />
+
 ## Levantar el servidor MQTT
 
 Para levantar el servidor MQTT, se debe ejecutar el siguiente comando en la terminal:
