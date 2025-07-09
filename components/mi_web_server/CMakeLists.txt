@@ -6,8 +6,6 @@ idf_component_register(
                 mi_wifi_ap
                 mi_delay
                 mi_audio
-                spiff_handler
-                nvs_handler
                 json
     EMBED_FILES "index.html"
 )

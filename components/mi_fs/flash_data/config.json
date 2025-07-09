@@ -1,5 +1,5 @@
 {
-    "mqtt_url": "mqtt://10.4.97.13",
+    "mqtt_url": "mqtt://10.4.97.10",
     "sta_ssid": "caliope",
     "sta_password": "sinlugar",
     "play_list" : [

@@ -8,9 +8,9 @@
 #include "mi_fs.h"
 #include "mi_config.h"
 #include <string.h>
+#include <ctype.h>
 #include <stdlib.h>
-#include "spiff_handler.h"
-#include "nvs_handler.h"
+
 
 // Declaraciones anticipadas de handlers
 esp_err_t previous_track_handler(httpd_req_t *req);
@@ -19,13 +19,11 @@ esp_err_t stop_song_handler(httpd_req_t *req);
 esp_err_t volume_up_handler(httpd_req_t *req);
 esp_err_t volume_down_handler(httpd_req_t *req);
 esp_err_t play_pause_handler(httpd_req_t *req);
-esp_err_t delete_last_song_handler(httpd_req_t *req);
 esp_err_t get_mqtt_config_handler(httpd_req_t *req);
 esp_err_t mqtt_config_post_handler(httpd_req_t *req);
 esp_err_t get_wifi_credentials_handler(httpd_req_t *req);
 esp_err_t list_songs_handler(httpd_req_t *req);
 esp_err_t add_song_handler(httpd_req_t *req);
-esp_err_t remove_song_handler(httpd_req_t *req);
 esp_err_t set_sta_config_handler(httpd_req_t *req);
 
 extern const uint8_t index_html_start[] asm("_binary_index_html_start");
@@ -77,12 +75,6 @@ const httpd_uri_t PlayPause = {
     .handler = play_pause_handler,
     .user_ctx = NULL};
 
-httpd_uri_t delete_last_song_uri = {
-    .uri = "/deleteLastSong",
-    .method = HTTP_POST,
-    .handler = delete_last_song_handler,
-    .user_ctx = NULL};
-
 httpd_uri_t get_mqtt_handler = {
     .uri = "/getMQTTCredentials",
     .method = HTTP_GET,
@@ -93,12 +85,6 @@ const httpd_uri_t mqtt_config = {
     .uri = "/mqttConfig",
     .method = HTTP_POST,
     .handler = mqtt_config_post_handler,
-    .user_ctx = NULL};
-
-httpd_uri_t remove_song_uri = {
-    .uri = "/removeSong",
-    .method = HTTP_POST,
-    .handler = remove_song_handler,
     .user_ctx = NULL};
 
 httpd_uri_t list_songs_uri = {
@@ -119,6 +105,32 @@ httpd_uri_t set_sta_config_uri = {
     .method = HTTP_POST,
     .handler = set_sta_config_handler,
     .user_ctx = NULL};
+
+
+void url_decode(char *dst, const char *src)
+{
+    char a, b;
+    while (*src) {
+        if ((*src == '%') &&
+            ((a = src[1]) && (b = src[2])) &&
+            (isxdigit(a) && isxdigit(b))) {
+            if (a >= 'a') a -= 'a'-'A';
+            if (a >= 'A') a -= ('A' - 10);
+            else a -= '0';
+            if (b >= 'a') b -= 'a'-'A';
+            if (b >= 'A') b -= ('A' - 10);
+            else b -= '0';
+            *dst++ = 16*a+b;
+            src+=3;
+        } else if (*src == '+') {
+            *dst++ = ' ';
+            src++;
+        } else {
+            *dst++ = *src++;
+        }
+    }
+    *dst++ = '\0';
+}
 
 // Manejador para la ruta "/"
 esp_err_t index_handler(httpd_req_t *req)
@@ -142,8 +154,6 @@ httpd_handle_t start_webserver(void)
     config.lru_purge_enable = true;
     config.max_uri_handlers = 20;
 
-    // cont = load_counter_from_nvs();
-
     // Iniciar el servidor httpd
     ESP_LOGI(TAG, "Starting server on port: '%d'", config.server_port);
     if (httpd_start(&server, &config) == ESP_OK)
@@ -165,12 +175,9 @@ httpd_handle_t start_webserver(void)
         httpd_register_uri_handler(server, &volDown);
         httpd_register_uri_handler(server, &PlayPause);
         httpd_register_uri_handler(server, &stopSong);
-        httpd_register_uri_handler(server, &delete_last_song_uri);
         httpd_register_uri_handler(server, &get_mqtt_handler);
         httpd_register_uri_handler(server, &mqtt_config);
-        httpd_register_uri_handler(server, &remove_song_uri);
         httpd_register_uri_handler(server, &list_songs_uri);
-        httpd_register_uri_handler(server, &add_song_uri);
         httpd_register_uri_handler(server, &set_sta_config_uri);
 
 #if CONFIG_EXAMPLE_BASIC_AUTH
@@ -282,24 +289,6 @@ esp_err_t stop_song_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-esp_err_t delete_last_song_handler(httpd_req_t *req)
-{
-    ESP_LOGI(TAG, " Request to delete the last song");
-
-    esp_err_t result = spiff_handler_remove_last_song();
-    if (result == ESP_OK)
-    {
-        httpd_resp_set_status(req, HTTPD_200);
-        httpd_resp_sendstr(req, "Last song deleted successfully");
-    }
-    else
-    {
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to delete the last song");
-    }
-
-    return result;
-}
-
 // Función de callback pa1ra manejar la solicitud HTTP GET /getMQTTCredentials
 esp_err_t get_mqtt_config_handler(httpd_req_t *req)
 {
@@ -326,23 +315,6 @@ esp_err_t get_mqtt_config_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-esp_err_t list_files_handler(httpd_req_t *req)
-{
-    char *list;
-
-    esp_err_t ret = spiff_handler_list_files(&list);
-    if (ret == ESP_OK)
-    {
-        printf("Files in SPIFFS: %s\n", list);
-    }
-    else
-    {
-        ESP_LOGE(TAG, "Failed to list files in SPIFFS");
-    }
-    httpd_resp_send(req, list, strlen(list));
-    free(list); // Liberar la memoria asignada por la función
-    return ESP_OK;
-}
 
 esp_err_t mqtt_config_post_handler(httpd_req_t *req)
 {
@@ -506,42 +478,6 @@ esp_err_t add_song_handler(httpd_req_t *req)
     httpd_resp_sendstr(req, "Song added");
     return ESP_OK;
 }
-
-// Quitar una canción de la lista de reproducción
-esp_err_t remove_song_handler(httpd_req_t *req)
-{
-    char buf[128];
-    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
-    if (ret <= 0)
-    {
-        if (ret == HTTPD_SOCK_ERR_TIMEOUT)
-        {
-            httpd_resp_send_408(req);
-        }
-        return ESP_FAIL;
-    }
-    buf[ret] = '\0';
-    
-    // Espera formato: song=nombre
-    char *song_start = strstr(buf, "song=");
-    if (!song_start)
-    {
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing song param");
-        return ESP_FAIL;
-    }
-    song_start += strlen("song=");
-    char song_name[64] = {0};
-    strncpy(song_name, song_start, sizeof(song_name) - 1);
-    song_name[sizeof(song_name) - 1] = '\0';
-    
-    ESP_LOGI(TAG, "Removing song: %s", song_name);
-    
-    // Por ahora, solo devolvemos éxito
-    httpd_resp_sendstr(req, "Song removed");
-    return ESP_OK;
-}
-
-
 
 void mi_web_server_init(void) {
 }
