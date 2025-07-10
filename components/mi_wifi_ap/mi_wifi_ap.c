@@ -5,6 +5,20 @@
 #include <string.h>
 #include <inttypes.h>
 #include "mi_config.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
+
+// Variables globales para almacenar credenciales STA
+static char sta_ssid[32] = {0};
+static char sta_password[64] = {0};
+static bool wifi_monitor_task_running = false;
+static TaskHandle_t wifi_monitor_task_handle = NULL;
+
+// Event group para sincronización
+static EventGroupHandle_t wifi_event_group;
+#define WIFI_CONNECTED_BIT BIT0
+#define WIFI_FAIL_BIT      BIT1
 
 static void wifi_event_cb(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
@@ -46,7 +60,75 @@ static void ip_event_cb(void *arg, esp_event_base_t event_base, int32_t event_id
     }
 }
 
+/**
+ * @brief Tarea que monitorea la conexión WiFi y reconecta automáticamente si se pierde
+ */
+static void wifi_monitor_task(void *pvParameters)
+{
+    const TickType_t check_interval = pdMS_TO_TICKS(5000); // Revisar cada 5 segundos
+    const TickType_t reconnect_delay = pdMS_TO_TICKS(1000); // Esperar 1 segundo antes de reconectar
+    
+    ESP_LOGI("WIFI_MONITOR", "Tarea de monitoreo WiFi iniciada");
+    
+    while (wifi_monitor_task_running) {
+        wifi_ap_record_t ap_info;
+        esp_err_t err = esp_wifi_sta_get_ap_info(&ap_info);
+        
+        if (err != ESP_OK) {
+            ESP_LOGW("WIFI_MONITOR", "WiFi desconectado, intentando reconectar...");
+            
+            // Verificar que tenemos credenciales válidas
+            if (strlen(sta_ssid) > 0 && strlen(sta_password) > 0) {
+                ESP_ERROR_CHECK(esp_wifi_disconnect());
+                vTaskDelay(reconnect_delay);
+                ESP_ERROR_CHECK(esp_wifi_connect());
+                ESP_LOGI("WIFI_MONITOR", "Reconexión iniciada para SSID: %s", sta_ssid);
+            } else {
+                ESP_LOGW("WIFI_MONITOR", "No hay credenciales STA configuradas");
+            }
+        } else {
+            ESP_LOGD("WIFI_MONITOR", "WiFi conectado a: %s", ap_info.ssid);
+        }
+        
+        vTaskDelay(check_interval);
+    }
+    
+    ESP_LOGI("WIFI_MONITOR", "Tarea de monitoreo WiFi terminada");
+    vTaskDelete(NULL);
+}
+
+/**
+ * @brief Inicia la tarea de monitoreo WiFi
+ */
+static void start_wifi_monitor_task(void)
+{
+    if (!wifi_monitor_task_running) {
+        wifi_monitor_task_running = true;
+        xTaskCreate(wifi_monitor_task, "wifi_monitor", 4096, NULL, 5, &wifi_monitor_task_handle);
+        ESP_LOGI("WIFI_MONITOR", "Tarea de monitoreo WiFi creada");
+    }
+}
+
+/**
+ * @brief Detiene la tarea de monitoreo WiFi
+ */
+static void stop_wifi_monitor_task(void)
+{
+    if (wifi_monitor_task_running) {
+        wifi_monitor_task_running = false;
+        if (wifi_monitor_task_handle != NULL) {
+            vTaskDelete(wifi_monitor_task_handle);
+            wifi_monitor_task_handle = NULL;
+        }
+        ESP_LOGI("WIFI_MONITOR", "Tarea de monitoreo WiFi detenida");
+    }
+}
+
 void reconnect_wifi_ap(char *ssid, char *password){
+    // Almacenar las credenciales globalmente
+    strncpy(sta_ssid, ssid, sizeof(sta_ssid) - 1);
+    strncpy(sta_password, password, sizeof(sta_password) - 1);
+    
     // Solo reconecta la STA, no toca el AP ni reinicializa el stack
     wifi_config_t sta_config = {0};
     strncpy((char *)sta_config.sta.ssid, ssid, sizeof(sta_config.sta.ssid));
@@ -60,10 +142,15 @@ void reconnect_wifi_ap(char *ssid, char *password){
 
 void on_sta_changed(char *new_ssid, char *new_password) {
     ESP_LOGI("WIFI", "STA config changed! New SSID: %s", new_ssid);
+    
+    // Actualizar las credenciales globales
+    strncpy(sta_ssid, new_ssid, sizeof(sta_ssid) - 1);
+    strncpy(sta_password, new_password, sizeof(sta_password) - 1);
+    
     reconnect_wifi_ap(new_ssid, new_password);
 }
 
-void init_wifi_apsta(const char *ap_ssid, const char *ap_password, const char *sta_ssid, const char *sta_password) {
+void init_wifi_apsta(const char *ap_ssid, const char *ap_password, const char *sta_ssid_param, const char *sta_password_param) {
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
@@ -86,17 +173,24 @@ void init_wifi_apsta(const char *ap_ssid, const char *ap_password, const char *s
 
     // STA config
     wifi_config_t sta_config = {0};
-    strncpy((char *)sta_config.sta.ssid, sta_ssid, sizeof(sta_config.sta.ssid));
-    strncpy((char *)sta_config.sta.password, sta_password, sizeof(sta_config.sta.password));
+    strncpy((char *)sta_config.sta.ssid, sta_ssid_param, sizeof(sta_config.sta.ssid));
+    strncpy((char *)sta_config.sta.password, sta_password_param, sizeof(sta_config.sta.password));
     sta_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &sta_config));
+
+    // Almacenar las credenciales STA globalmente para el monitoreo
+    strncpy(sta_ssid, sta_ssid_param, sizeof(sta_ssid) - 1);
+    strncpy(sta_password, sta_password_param, sizeof(sta_password) - 1);
 
     esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, wifi_event_cb, NULL);
     esp_event_handler_register(IP_EVENT, IP_EVENT_AP_STAIPASSIGNED, ip_event_cb, NULL);
 
     ESP_ERROR_CHECK(esp_wifi_start());
     ESP_ERROR_CHECK(esp_wifi_connect());
-    ESP_LOGI("WIFI", "APSTA mode started. AP SSID: %s, STA SSID: %s", ap_ssid, sta_ssid);
+    ESP_LOGI("WIFI", "APSTA mode started. AP SSID: %s, STA SSID: %s", ap_ssid, sta_ssid_param);
     mi_config_on_sta_changed(on_sta_changed); // Register the callback for STA changes
+    
+    // Iniciar la tarea de monitoreo WiFi
+    start_wifi_monitor_task();
 }
 
