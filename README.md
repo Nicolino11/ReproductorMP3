@@ -1,6 +1,6 @@
-## Laboratorio Final 
+## Reproductor MP3
 
-**Integrantes:** Nicolas Raposo, Martin Da Rosa y Rafael Durán.
+**Integrantes del trabajo:** Nicolas Raposo, Martin Da Rosa y Rafael Durán.
 
 ## Uso de Touchpad
 
